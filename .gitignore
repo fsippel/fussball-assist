@@ -1,0 +1,8 @@
+.DS_Store
+__pycache__/
+.venv/
+.pytest_cache/
+# Interne Unterlagen (Entwurf, Plan, Recherche): bleiben lokal, nie auf GitHub
+/intern/
+.ha-dev-config/
+.claude/

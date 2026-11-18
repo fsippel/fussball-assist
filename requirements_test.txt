@@ -1,0 +1,6 @@
+pytest-homeassistant-custom-component==0.13.375
+# Abhängigkeiten der Komponente conversation (Manifest in HA 2026.10.4);
+# helpers.llm.APIInstance.async_call_tool importiert sie bei jedem Werkzeugaufruf.
+gazetteer-matcher==1.1.0
+hassil==3.12.1
+home-assistant-intents==2026.10.6

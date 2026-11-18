@@ -1,0 +1,79 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Competitions",
+        "description": "Choose the competitions Fußball-Assist should answer questions about. All are selected by default; at least one is required.",
+        "data": {
+          "wettbewerbe": "Competitions"
+        },
+        "data_description": {
+          "wettbewerbe": "The clubs offered in the next step come from the selected competitions."
+        }
+      },
+      "vereine": {
+        "title": "Favorite clubs",
+        "description": "A question without a club name (\"How did we do?\") refers to the main club. Both fields are optional; the men's teams of the selected competitions are offered.",
+        "data": {
+          "hauptverein": "Main club",
+          "lieblingsvereine": "Other favorite clubs"
+        },
+        "data_description": {
+          "hauptverein": "The club meant when no club is named. Leave empty if there is none.",
+          "lieblingsvereine": "Their matches come first in the weekly overview and in long match lists."
+        }
+      }
+    },
+    "error": {
+      "keine_wettbewerbe": "Select at least one competition.",
+      "nicht_erreichbar": "OpenLigaDB is not reachable right now. Please try again in a moment."
+    },
+    "abort": {
+      "saison_fehlt": "There is no season file for the current season. An update of the integration is needed.",
+      "single_instance_allowed": "Fußball-Assist is already set up. Only one setup is possible."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Competitions",
+        "description": "Choose the competitions Fußball-Assist should answer questions about. At least one is required.",
+        "data": {
+          "wettbewerbe": "Competitions"
+        },
+        "data_description": {
+          "wettbewerbe": "The clubs offered in the next step come from the selected competitions."
+        }
+      },
+      "vereine": {
+        "title": "Favorite clubs",
+        "description": "A question without a club name (\"How did we do?\") refers to the main club. Both fields are optional; the men's teams of the selected competitions are offered.",
+        "data": {
+          "hauptverein": "Main club",
+          "lieblingsvereine": "Other favorite clubs"
+        },
+        "data_description": {
+          "hauptverein": "The club meant when no club is named. Leave empty if there is none.",
+          "lieblingsvereine": "Their matches come first in the weekly overview and in long match lists."
+        }
+      }
+    },
+    "error": {
+      "keine_wettbewerbe": "Select at least one competition.",
+      "nicht_erreichbar": "OpenLigaDB is not reachable right now. Please try again in a moment."
+    },
+    "abort": {
+      "saison_fehlt": "There is no season file for the current season. An update of the integration is needed."
+    }
+  },
+  "issues": {
+    "saison_fehlt": {
+      "title": "Fußball-Assist has no data for season {saison}",
+      "description": "There is no season file for season {saison}, so Fußball-Assist cannot answer questions about matches, tables or top scorers. An update of the integration is needed. This message disappears once it is installed and Home Assistant has been restarted."
+    },
+    "kuerzel_unbekannt": {
+      "title": "Fußball-Assist does not know competitions of season {saison}",
+      "description": "OpenLigaDB has no league with the shortcuts {kuerzel} for season {saison}, so the matching competitions return no data. OpenLigaDB may have changed the shortcuts or not created the league yet. An update of the integration may be needed."
+    }
+  }
+}

@@ -1,0 +1,194 @@
+{
+  "year": 2026,
+  "label": "2026/27",
+  "competitions": {
+    "bundesliga": {
+      "name": "Bundesliga",
+      "kind": "liga",
+      "shortcuts": [
+        "bl1"
+      ],
+      "has_table": true,
+      "has_scorers": true,
+      "scorers_incomplete": false,
+      "women": false,
+      "zones": [
+        {
+          "label": "Relegationsplatz gegen den Abstieg",
+          "first": 16,
+          "last": 16
+        },
+        {
+          "label": "Abstiegsplatz",
+          "first": 17,
+          "last": 18
+        }
+      ],
+      "league_phase_rounds": null,
+      "national_team_ids": {},
+      "zonen_quelle": "DFL Spielordnung (SpOL), Stand 11.06.2026, § 3 Nr. 2: https://media.dfl.de/sites/2/2026/06/Spielordnung-SpOL-2026-06-11-Stand.pdf; abgerufen 2026-11-17"
+    },
+    "2_bundesliga": {
+      "name": "2. Bundesliga",
+      "kind": "liga",
+      "shortcuts": [
+        "bl2"
+      ],
+      "has_table": true,
+      "has_scorers": true,
+      "scorers_incomplete": false,
+      "women": false,
+      "zones": [
+        {
+          "label": "Aufstiegsplatz",
+          "first": 1,
+          "last": 2
+        },
+        {
+          "label": "Relegationsplatz für den Aufstieg",
+          "first": 3,
+          "last": 3
+        },
+        {
+          "label": "Relegationsplatz gegen den Abstieg",
+          "first": 16,
+          "last": 16
+        },
+        {
+          "label": "Abstiegsplatz",
+          "first": 17,
+          "last": 18
+        }
+      ],
+      "league_phase_rounds": null,
+      "national_team_ids": {},
+      "zonen_quelle": "DFL Spielordnung (SpOL), Stand 11.06.2026, § 3 Nr. 3, 5 und 6: https://media.dfl.de/sites/2/2026/06/Spielordnung-SpOL-2026-06-11-Stand.pdf; abgerufen 2026-11-17"
+    },
+    "3_liga": {
+      "name": "3. Liga",
+      "kind": "liga",
+      "shortcuts": [
+        "bl3"
+      ],
+      "has_table": true,
+      "has_scorers": true,
+      "scorers_incomplete": true,
+      "women": false,
+      "zones": [
+        {
+          "label": "Aufstiegsplatz",
+          "first": 1,
+          "last": 2
+        },
+        {
+          "label": "Relegationsplatz für den Aufstieg",
+          "first": 3,
+          "last": 3
+        },
+        {
+          "label": "Abstiegsplatz",
+          "first": 17,
+          "last": 20
+        }
+      ],
+      "league_phase_rounds": null,
+      "national_team_ids": {},
+      "zonen_quelle": "DFB-Spielordnung (Heft 04), Stand 1. Juli 2026, § 55 Nr. 2 und § 55a Nr. 1: https://assets.dfb.de/uploads/000/336/416/original_Heft_04_Spielordnung_Schiedsrichterordnung_20260701.pdf; abgerufen 2026-11-17"
+    },
+    "dfb_pokal": {
+      "name": "DFB-Pokal",
+      "kind": "pokal",
+      "shortcuts": [
+        "dfb"
+      ],
+      "has_table": false,
+      "has_scorers": true,
+      "scorers_incomplete": false,
+      "women": false,
+      "zones": [],
+      "league_phase_rounds": null,
+      "national_team_ids": {}
+    },
+    "champions_league": {
+      "name": "Champions League",
+      "kind": "europa",
+      "shortcuts": [
+        "ucl"
+      ],
+      "has_table": true,
+      "has_scorers": true,
+      "scorers_incomplete": false,
+      "women": false,
+      "zones": [],
+      "league_phase_rounds": 8,
+      "national_team_ids": {}
+    },
+    "europa_league": {
+      "name": "Europa League",
+      "kind": "europa",
+      "shortcuts": [
+        "uel2026"
+      ],
+      "has_table": true,
+      "has_scorers": true,
+      "scorers_incomplete": false,
+      "women": false,
+      "zones": [],
+      "league_phase_rounds": 8,
+      "national_team_ids": {}
+    },
+    "conference_league": {
+      "name": "Conference League",
+      "kind": "europa",
+      "shortcuts": [
+        "uecl2026"
+      ],
+      "has_table": true,
+      "has_scorers": true,
+      "scorers_incomplete": true,
+      "women": false,
+      "zones": [],
+      "league_phase_rounds": 6,
+      "national_team_ids": {}
+    },
+    "nationalmannschaft": {
+      "name": "Nationalmannschaft",
+      "kind": "nationalteam",
+      "shortcuts": [
+        "nla",
+        "DFBN"
+      ],
+      "has_table": false,
+      "has_scorers": false,
+      "scorers_incomplete": false,
+      "women": false,
+      "zones": [],
+      "league_phase_rounds": null,
+      "national_team_ids": {
+        "nla": 725,
+        "DFBN": 139
+      }
+    },
+    "frauen_bundesliga": {
+      "name": "Frauen-Bundesliga",
+      "kind": "liga",
+      "shortcuts": [
+        "ffb1"
+      ],
+      "has_table": true,
+      "has_scorers": true,
+      "scorers_incomplete": false,
+      "women": true,
+      "zones": [
+        {
+          "label": "Abstiegsplatz",
+          "first": 13,
+          "last": 14
+        }
+      ],
+      "league_phase_rounds": null,
+      "national_team_ids": {},
+      "zonen_quelle": "DFB-Spielordnung (Heft 04), Stand 1. Juli 2026, § 48 Nr. 1: https://assets.dfb.de/uploads/000/336/416/original_Heft_04_Spielordnung_Schiedsrichterordnung_20260701.pdf; Sollstärke 14 Mannschaften: DFB-Statut Frauen-Bundesliga, Stand 1. Juli 2026, § 1 Nr. 2; abgerufen 2026-11-17"
+    }
+  }
+}

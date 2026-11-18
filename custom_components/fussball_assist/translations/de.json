@@ -1,0 +1,79 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wettbewerbe",
+        "description": "Wähle die Wettbewerbe, zu denen Fußball-Assist Fragen beantworten soll. Standardmäßig sind alle ausgewählt. Mindestens einer muss gewählt sein.",
+        "data": {
+          "wettbewerbe": "Wettbewerbe"
+        },
+        "data_description": {
+          "wettbewerbe": "Aus den gewählten Wettbewerben kommt die Liste der Vereine im nächsten Schritt."
+        }
+      },
+      "vereine": {
+        "title": "Lieblingsvereine",
+        "description": "Ohne Vereinsnamen in der Frage („Wie haben wir gespielt?“) gilt der Hauptverein. Beide Angaben sind freiwillig; zur Auswahl stehen die Männermannschaften der gewählten Wettbewerbe.",
+        "data": {
+          "hauptverein": "Hauptverein",
+          "lieblingsvereine": "Weitere Lieblingsvereine"
+        },
+        "data_description": {
+          "hauptverein": "Der Verein, der gemeint ist, wenn kein Verein genannt wird. Leer lassen, wenn es keinen gibt.",
+          "lieblingsvereine": "Die Spiele dieser Vereine stehen in der Wochenübersicht und in langen Spiellisten zuerst."
+        }
+      }
+    },
+    "error": {
+      "keine_wettbewerbe": "Wähle mindestens einen Wettbewerb.",
+      "nicht_erreichbar": "OpenLigaDB ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal."
+    },
+    "abort": {
+      "saison_fehlt": "Für die aktuelle Saison liegt keine Saisondatei vor. Ein Update der Integration ist nötig.",
+      "single_instance_allowed": "Fußball-Assist ist schon eingerichtet. Es ist nur eine Einrichtung möglich."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Wettbewerbe",
+        "description": "Wähle die Wettbewerbe, zu denen Fußball-Assist Fragen beantworten soll. Mindestens einer muss gewählt sein.",
+        "data": {
+          "wettbewerbe": "Wettbewerbe"
+        },
+        "data_description": {
+          "wettbewerbe": "Aus den gewählten Wettbewerben kommt die Liste der Vereine im nächsten Schritt."
+        }
+      },
+      "vereine": {
+        "title": "Lieblingsvereine",
+        "description": "Ohne Vereinsnamen in der Frage („Wie haben wir gespielt?“) gilt der Hauptverein. Beide Angaben sind freiwillig; zur Auswahl stehen die Männermannschaften der gewählten Wettbewerbe.",
+        "data": {
+          "hauptverein": "Hauptverein",
+          "lieblingsvereine": "Weitere Lieblingsvereine"
+        },
+        "data_description": {
+          "hauptverein": "Der Verein, der gemeint ist, wenn kein Verein genannt wird. Leer lassen, wenn es keinen gibt.",
+          "lieblingsvereine": "Die Spiele dieser Vereine stehen in der Wochenübersicht und in langen Spiellisten zuerst."
+        }
+      }
+    },
+    "error": {
+      "keine_wettbewerbe": "Wähle mindestens einen Wettbewerb.",
+      "nicht_erreichbar": "OpenLigaDB ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal."
+    },
+    "abort": {
+      "saison_fehlt": "Für die aktuelle Saison liegt keine Saisondatei vor. Ein Update der Integration ist nötig."
+    }
+  },
+  "issues": {
+    "saison_fehlt": {
+      "title": "Fußball-Assist hat keine Daten für die Saison {saison}",
+      "description": "Für die Saison {saison} liegt keine Saisondatei vor, deshalb kann Fußball-Assist keine Fragen zu Spielen, Tabellen oder Torjägern beantworten. Es ist ein Update der Integration nötig. Sobald es installiert und Home Assistant neu gestartet ist, verschwindet diese Meldung."
+    },
+    "kuerzel_unbekannt": {
+      "title": "Fußball-Assist kennt Wettbewerbe der Saison {saison} nicht",
+      "description": "OpenLigaDB führt für die Saison {saison} keine Liga mit den Kürzeln: {kuerzel}. Die zugehörigen Wettbewerbe liefern deshalb keine Daten. Möglicherweise hat OpenLigaDB die Kürzel geändert oder die Liga noch nicht angelegt. Ein Update der Integration kann nötig sein."
+    }
+  }
+}
