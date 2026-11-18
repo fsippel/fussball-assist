@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
+from custom_components.fussball_assist.models import Phase, Score
 from custom_components.fussball_assist.results import (
     ambiguous_payload,
     asked_competition,
@@ -263,6 +264,24 @@ def test_unclear_result_drops_result_fields_and_goals_and_is_explained():
         "Das Ergebnis ist in den Daten nicht eindeutig.",
         "Wegen des unklaren Ergebnisses nenne ich auch keine Tore.",
     ]
+
+
+def test_outcome_is_told_from_the_view_of_the_club():
+    snapshot = make_snapshot(NOW)
+    competition = snapshot.season.competitions["bundesliga"]
+    finished = next(m for m in snapshot.matches["bundesliga"] if m.finished and m.final is not None)
+
+    def entry_for(match, team):
+        return match_entry(match, snapshot, team=team, competition=competition, same_round=[], ids=frozenset({team.id}))
+
+    away_win = dataclasses.replace(finished, final=Score(1, 2), final_phase=Phase.REGULAR, regular=Score(1, 2), result_unclear=False)
+    guest = entry_for(away_win, away_win.away)
+    assert guest["ort"] == "auswärts" and guest["ergebnis"] == "1:2" and guest["ausgang"] == "2:1-Sieg"
+    host = entry_for(away_win, away_win.home)
+    assert host["ort"] == "heim" and host["ergebnis"] == "1:2" and host["ausgang"] == "1:2-Niederlage"
+    draw = dataclasses.replace(away_win, final=Score(3, 3), regular=Score(3, 3))
+    assert entry_for(draw, draw.away)["ausgang"] == "3:3-Unentschieden"
+    assert entry_for(draw, draw.home)["ausgang"] == "3:3-Unentschieden"
 
 
 def test_match_entry_with_team_needs_ids():

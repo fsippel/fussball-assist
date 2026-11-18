@@ -80,7 +80,7 @@ def test_nickname_and_count():
     assert opponents == ["SV Darmstadt 98", "FC St. Pauli", "Bayer 04 Leverkusen", "1. FC Kaiserslautern", "Energie Cottbus"]
     assert [e["ergebnis"] for e in result["letzte"]] == ["2:0", "1:3", "5:2", "0:1", "1:1"]
     assert [e["ort"] for e in result["letzte"]] == ["heim", "auswärts", "auswärts", "heim", "auswärts"]
-    assert [e["ausgang"] for e in result["letzte"]] == ["Sieg", "Sieg", "Niederlage", "Niederlage", "Unentschieden"]
+    assert [e["ausgang"] for e in result["letzte"]] == ["2:0-Sieg", "3:1-Sieg", "2:5-Niederlage", "0:1-Niederlage", "1:1-Unentschieden"]
     assert [e["wettbewerb"] for e in result["letzte"]] == ["2. Bundesliga", "2. Bundesliga", "DFB-Pokal", "2. Bundesliga", "2. Bundesliga"]
 
 
@@ -110,7 +110,7 @@ def test_first_leg_against_opponent():
     (first_leg,) = result["letzte"]
     assert first_leg["wann"] == "Samstag, 15. August, 13:00 Uhr"
     assert (first_leg["heim"], first_leg["gast"]) == ("SpVgg Greuther Fürth", "1. FC Nürnberg")
-    assert first_leg["ergebnis"] == "2:4" and first_leg["ausgang"] == "Sieg" and first_leg["ort"] == "auswärts"
+    assert first_leg["ergebnis"] == "2:4" and first_leg["ausgang"] == "4:2-Sieg" and first_leg["ort"] == "auswärts"
     assert first_leg["runde"] == "2. Spieltag" and first_leg["bezug"] == "vor 94 Tagen"
 
 
@@ -121,7 +121,7 @@ def test_cup_result_on_penalties():
     assert first_round["ergebnis"] == "5:6"
     assert first_round["ergebnis_zusatz"] == "im Elfmeterschießen"
     assert first_round["nach_90_minuten"] == "1:1"
-    assert first_round["ausgang"] == "Sieg" and first_round["gegner"] == "Viktoria Köln"
+    assert first_round["ausgang"] == "6:5-Sieg" and first_round["gegner"] == "Viktoria Köln"
     second_round = result["letzte"][0]
     assert "ergebnis_zusatz" not in second_round and "nach_90_minuten" not in second_round
 
@@ -136,7 +136,7 @@ def test_cup_lost_and_nothing_scheduled_means_out():
 def test_cup_lost_on_penalties_is_out_too():
     # Hoffenheim verlor die 2. Runde in Kiel im Elfmeterschießen (5:4).
     result = ask(verein="Hoffenheim", wettbewerb="dfb_pokal")
-    assert result["letzte"][0]["ausgang"] == "Niederlage" and result["letzte"][0]["ergebnis_zusatz"] == "im Elfmeterschießen"
+    assert result["letzte"][0]["ausgang"] == "4:5-Niederlage" and result["letzte"][0]["ergebnis_zusatz"] == "im Elfmeterschießen"
     assert hints(result, "TSG Hoffenheim ist im DFB-Pokal ausgeschieden.")
 
 
@@ -145,7 +145,7 @@ def test_cup_won_and_next_round_not_scheduled():
     full = make_snapshot(NOW)
     matches = {**full.matches, "dfb_pokal": tuple(m for m in full.matches["dfb_pokal"] if m.id != 88752)}
     result = ask(make_snapshot(NOW, matches=MappingProxyType(matches)), verein="Bayern", wettbewerb="dfb_pokal")
-    assert result["letzte"][0]["ausgang"] == "Sieg" and result["naechste"] == []
+    assert result["letzte"][0]["ausgang"] == "6:1-Sieg" and result["naechste"] == []
     assert result["hinweise"] == ["Die nächste Runde ist noch nicht angesetzt."]
 
 
@@ -211,7 +211,7 @@ def test_one_lost_match_in_the_european_league_phase_says_nothing_about_being_ou
         ),
     }
     result = ask(make_snapshot(NOW, matches=MappingProxyType(matches)), verein="Trabzonspor", wettbewerb="conference_league")
-    assert result["letzte"][0]["ausgang"] == "Niederlage" and result["naechste"] == []
+    assert result["letzte"][0]["ausgang"] == "0:1-Niederlage" and result["naechste"] == []
     assert not hints(result, "ist in der Conference League ausgeschieden") and not hints(result, "nächste Runde ist noch nicht")
     assert hints(result, "vielleicht noch nicht ausgelost")
 
@@ -230,7 +230,7 @@ def test_national_team_is_merged():
     entries = result["letzte"]
     assert [e["gegner"] for e in entries] == ["Niederlande", "Serbien", "Griechenland", "Serbien", "Griechenland"]
     assert [e["ergebnis"] for e in entries] == ["5:0", "1:3", "0:0", "2:0", "0:1"]
-    assert [e["ausgang"] for e in entries] == ["Sieg", "Sieg", "Unentschieden", "Sieg", "Niederlage"]
+    assert [e["ausgang"] for e in entries] == ["5:0-Sieg", "3:1-Sieg", "0:0-Unentschieden", "2:0-Sieg", "0:1-Niederlage"]
     days = [e["wann"].split(",")[1] for e in entries]
     assert len(set(days)) == 5
     assert all(e["ort"] == "neutral" for e in entries)

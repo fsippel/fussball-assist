@@ -479,8 +479,9 @@ def match_entry(
     """Ein Spiel als flaches, vorlesbares Wörterbuch; Felder ohne Wert fehlen.
 
     Die Gründe für fehlende Felder liefert `match_hints` (bei laufenden Spielen `live_hints`). Ein
-    laufendes Spiel bekommt `ergebnis` und `tore` nur mit frischem Stand (`live_score_known`). Mit `team` kommen `gegner`, `ort` und
-    `ausgang` aus Sicht dieses Vereins dazu. `ids` (Pflicht, wenn `team`
+    laufendes Spiel bekommt `ergebnis` und `tore` nur mit frischem Stand (`live_score_known`). Mit
+    `team` kommen `gegner`, `ort` und `ausgang` aus Sicht dieses Vereins dazu; `ausgang` nennt den
+    Stand mit den eigenen Toren zuerst, zum Beispiel „2:1-Sieg“. `ids` (Pflicht, wenn `team`
     gegeben ist) sind alle Kennungen des Vereins; ein Verein kann in mehreren Wettbewerben unter
     verschiedenen Kennungen auftreten, `team.id` allein würde Spiele übersehen. Bei unklarem
     Ergebnis entfallen auch die Tore, sonst ließe sich der Stand aus der Torliste erraten.
@@ -530,7 +531,8 @@ def match_entry(
             entry["ort"] = "neutral" if neutral_ground(competition, match) else ("heim" if home_is else "auswärts")
             if final is not None:
                 own, other = (final.home, final.away) if home_is else (final.away, final.home)
-                entry["ausgang"] = "Sieg" if own > other else "Niederlage" if own < other else "Unentschieden"
+                word = "Sieg" if own > other else "Niederlage" if own < other else "Unentschieden"
+                entry["ausgang"] = f"{own}:{other}-{word}"
     return entry
 
 

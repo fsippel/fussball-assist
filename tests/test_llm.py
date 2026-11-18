@@ -48,6 +48,13 @@ async def test_five_tools_and_the_prompt(hass, config_entry, llm_context):
     assert PROMPT in api.api_prompt and "Sag, dass du das nicht weißt" in PROMPT
     # Auch Wissen aus dem Training über Spieler und Vereine nicht als sicher ausgeben.
     assert "bei welchem Verein ein Spieler spielt" in PROMPT and "wenn du es zu wissen glaubst" in PROMPT
+    # Aus „M. Olise“ darf kein erfundener Vorname werden.
+    assert "nur den Nachnamen" in PROMPT and "ergänze keinen Vornamen" in PROMPT
+
+
+async def test_club_tool_description_names_the_outcome_from_the_view_of_the_club(hass, config_entry, llm_context):
+    _, tools = await _our_tools(hass, llm_context)
+    assert "Ausgang aus Sicht des Vereins" in tools["verein"].description
 
 
 async def test_annotations_say_read_only_and_internet(hass, config_entry, llm_context):

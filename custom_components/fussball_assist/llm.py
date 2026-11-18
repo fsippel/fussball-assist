@@ -38,7 +38,8 @@ PROMPT = (
     " Auslosungsterminen, Finalterminen und Finalorten und zu aktuellen Titelträgern hast du keine aktuellen"
     " Daten: Sag, dass du das nicht weißt. Sag auch dann nicht, bei welchem Verein ein Spieler spielt, wer"
     " Trainer ist oder wer im Kader steht, wenn du es zu wissen glaubst. Gib keine Prognosen, Wahrscheinlichkeiten oder Tipps ab. Nenne eine"
-    " Uhrzeit nur, wenn das Werkzeug sie als feststehend liefert."
+    " Uhrzeit nur, wenn das Werkzeug sie als feststehend liefert. Steht vor einem Spielernamen nur ein"
+    " Anfangsbuchstabe, nenne nur den Nachnamen und ergänze keinen Vornamen."
 )
 
 VEREIN, SPIELE, TABELLE, TORJAEGER, WOCHE = (
@@ -415,7 +416,8 @@ class VereinTool(_FootballTool):
     def _build_description(self) -> str:
         return (
             "Letzte und nächste Spiele eines bestimmten Vereins oder der Nationalmannschaft: Gegner, Anstoß,"
-            " heim oder auswärts, Ergebnis, Ausgang, Torschützen, laufender Stand und Pokalstatus. Ohne Verein"
+            " heim oder auswärts, Ergebnis, Ausgang aus Sicht des Vereins (etwa „2:1-Sieg“), Torschützen,"
+            " laufender Stand und Pokalstatus. Ohne Verein"
             " gilt der Hauptverein („wir“, „mein Verein“). Beispiele: „Hat der Club gestern gewonnen?“,"
             " „Wann spielt der Club gegen Fürth?“, „Wann spielt Deutschland wieder?“. Nicht für alle Spiele"
             " eines Tages (fussball_assist__spiele), Tabellenplätze (fussball_assist__tabelle), Torjäger"
