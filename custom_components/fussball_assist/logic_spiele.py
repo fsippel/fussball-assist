@@ -289,7 +289,9 @@ def _no_data(
     label = day_phrase(day, current_year=year)
     text = f"Für {label} habe ich keine Daten."
     if span is not None:
-        first, last = (day_phrase(d, current_year=year) for d in span)
+        # Beide Enden immer mit Jahr: Die Spanne reicht über einen Jahreswechsel, und ohne Jahr ergänzt ein
+        # Sprachmodell das Jahr des gefragten Tages.
+        first, last = (f"{day_phrase(d)} {d.year}" for d in span)
         text += f" Ich kenne nur Spiele von {first} bis {last}."
     return {
         "zeitraum": label,

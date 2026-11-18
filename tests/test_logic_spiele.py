@@ -633,7 +633,7 @@ def test_day_outside_the_loaded_season_data_has_no_data_not_no_matches(datum, la
     assert_speakable(result)
     assert result["zeitraum"] == label and result["wettbewerbe"] == []
     assert result["hinweise"][0] == (
-        f"Für {label} habe ich keine Daten. Ich kenne nur Spiele von Freitag, 7. August bis Sonntag, 23. Mai 2027."
+        f"Für {label} habe ich keine Daten. Ich kenne nur Spiele von Freitag, 7. August 2026 bis Sonntag, 23. Mai 2027."
     )
     assert not any("keine Spiele eingetragen" in h for h in result["hinweise"])
     assert "naechster_tag_mit_spielen" not in result and "grund" not in result

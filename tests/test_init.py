@@ -1,8 +1,10 @@
 """Einrichtung zur Laufzeit: Laden im Hintergrund, sichtbare Meldungen, Saisonwechsel."""
 
 import asyncio
+import json
 import re
 from datetime import timedelta
+from pathlib import Path
 
 import aiohttp
 import pytest
@@ -23,6 +25,10 @@ from custom_components.fussball_assist.const import (
 )
 from custom_components.fussball_assist.results import Settings
 from custom_components.fussball_assist.seasons import COMPETITION_KEYS
+
+_VERSION = json.loads(
+    (Path(__file__).parent.parent / "custom_components" / "fussball_assist" / "manifest.json").read_text()
+)["version"]
 from custom_components.fussball_assist.store import DataStore
 
 from .conftest import load_fixture, register_openliga, season_copy, setup_entry
@@ -58,7 +64,7 @@ async def test_warm_up_fetches_the_season_lists_with_the_user_agent(hass, config
     urls = {str(call[1]) for call in aioclient_mock.mock_calls}
     assert f"{API_BASE}/getavailableleagues" in urls and f"{API_BASE}/getmatchdata/bl1/2026" in urls
     assert {call[3]["User-Agent"] for call in aioclient_mock.mock_calls} == {
-        "fussball-assist/0.1.0 (Home Assistant)"
+        f"fussball-assist/{_VERSION} (Home Assistant)"
     }
     snapshot = await config_entry.runtime_data.store.async_snapshot(["bundesliga"])
     assert "bundesliga" in snapshot.loaded

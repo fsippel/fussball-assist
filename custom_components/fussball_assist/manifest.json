@@ -1,7 +1,7 @@
 {
   "domain": "fussball_assist",
   "name": "Fußball-Assist",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "codeowners": ["@fsippel"],
   "config_flow": true,
   "documentation": "https://github.com/fsippel/fussball-assist",

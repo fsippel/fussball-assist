@@ -36,7 +36,8 @@ PROMPT = (
     " sag das ehrlich und rate nicht. Zu Kadern, Trainern, Transfers, Aufstellungen, Karten, Schiedsrichtern,"
     " Zuschauerzahlen, dem Spielort eines bestimmten Spiels, Fernsehübertragungen, Tickets, Spielabsagen,"
     " Auslosungsterminen, Finalterminen und Finalorten und zu aktuellen Titelträgern hast du keine aktuellen"
-    " Daten: Sag, dass du das nicht weißt. Gib keine Prognosen, Wahrscheinlichkeiten oder Tipps ab. Nenne eine"
+    " Daten: Sag, dass du das nicht weißt. Sag auch dann nicht, bei welchem Verein ein Spieler spielt, wer"
+    " Trainer ist oder wer im Kader steht, wenn du es zu wissen glaubst. Gib keine Prognosen, Wahrscheinlichkeiten oder Tipps ab. Nenne eine"
     " Uhrzeit nur, wenn das Werkzeug sie als feststehend liefert."
 )
 

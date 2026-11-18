@@ -46,6 +46,8 @@ async def test_five_tools_and_the_prompt(hass, config_entry, llm_context):
     assert sorted(t.name for t in ours) == sorted(TOOL_NAMES) and len(TOOL_NAMES) == 5
     assert all(t.integration == DOMAIN and t.title and t.description and t.annotations.read_only for t in ours)
     assert PROMPT in api.api_prompt and "Sag, dass du das nicht weißt" in PROMPT
+    # Auch Wissen aus dem Training über Spieler und Vereine nicht als sicher ausgeben.
+    assert "bei welchem Verein ein Spieler spielt" in PROMPT and "wenn du es zu wissen glaubst" in PROMPT
 
 
 async def test_annotations_say_read_only_and_internet(hass, config_entry, llm_context):
