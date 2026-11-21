@@ -52,7 +52,7 @@ CATCH_UP = "nachgeholt"  # Vermerk zu `round_matches`: verlegte Spiele einer fr�
 
 NOT_UNIQUE = "Das Ergebnis ist in den Daten nicht eindeutig."
 NO_GOALS_WHEN_UNCLEAR = "Wegen des unklaren Ergebnisses nenne ich auch keine Tore."
-LIVE_LAG = "Der Stand kann einige Minuten hinterherhängen."
+LIVE_SCORE_CAVEAT = "Der Stand kann ein paar Minuten hinterherhängen; Tore kommen oft erst später in den Daten an."
 TIME_NOT_FIXED = "Uhrzeit noch nicht fest: Bei diesen Spielen ist nur der Tag sicher."
 SCORERS_MISSING = "Torschützen nicht eingetragen: Für einige Spiele fehlen sie in den Daten."
 NOT_FINISHED_NOTE = "Ein Spiel ist laut Daten noch nicht beendet; sein Endergebnis ist noch nicht eingetragen."
@@ -151,6 +151,25 @@ def stand_phrase(
     stamps += [snapshot.tables_at[key] for key in tables if key in snapshot.tables_at]
     stamps += [snapshot.scorers_at[key] for key in scorers if key in snapshot.scorers_at]
     return _moment_phrase(snapshot, min(stamps) if stamps else snapshot.now)
+
+
+def shown_stand(
+    snapshot: Snapshot,
+    searched: Iterable[str],
+    shown: Iterable[str],
+    *,
+    tables: Iterable[str] = (),
+    scorers: Iterable[str] = (),
+) -> str:
+    """`stand` einer Antwort mit Spielen: der älteste Abruf der Wettbewerbe, deren Spiele sie zeigt.
+
+    `shown` sind die Wettbewerbe der Spiele, die tatsächlich in der Antwort stehen (nach jeder Kürzung). Ein
+    durchsuchter Wettbewerb ohne gezeigtes Spiel zählt nicht: Sonst überdeckte eine Saisonliste vom Vortag den
+    frischen Abruf eines laufenden Spiels. Zeigt die Antwort kein Spiel, beruht die Aussage "kein Spiel" auf allen
+    durchsuchten Wettbewerben (`searched`), dann zählen sie alle. `tables` und `scorers` wie bei `stand_phrase`.
+    """
+    keys = unique(shown)
+    return stand_phrase(snapshot, keys or searched, tables=tables, scorers=scorers)
 
 
 def table_stale_hints(snapshot: Snapshot, keys: Iterable[str]) -> list[str]:
@@ -337,26 +356,21 @@ def _stale_live_sentence(snapshot: Snapshot, moment: datetime, entries: Sequence
 def live_hints(snapshot: Snapshot, shown: Iterable[tuple[Match, Mapping[str, Any], Competition]]) -> list[str]:
     """Hinweise zu laufenden und zu laut Daten nicht beendeten Spielen.
 
-    Ein laufendes Spiel mit frischem Stand bekommt den Hinweis zur Verzögerung; eines ohne frischen Stand (siehe
-    `live_score_known`, dann fehlen `ergebnis` und `tore`) den Satz, von wann der letzte Stand ist.
+    Ein laufendes Spiel ohne frischen Stand (siehe `live_score_known`, dann fehlen `ergebnis` und `tore`) bekommt
+    den Satz, von wann der letzte Stand ist. Eines mit frischem Stand braucht keinen Hinweis: Uhrzeit und
+    Vorbehalt stehen am Spiel selbst (`stand_von`, `vorbehalt`, siehe `match_entry`).
     """
-    fresh = False
     stale: dict[datetime, list[Mapping[str, Any]]] = {}
     not_finished = False
     for match, entry, competition in shown:
         state = entry.get("zustand")
         if state == STATE_TEXT[LIVE]:
-            if live_score_known(snapshot, competition, match):
-                fresh = True
-            else:
+            if not live_score_known(snapshot, competition, match):
                 stamp = snapshot.fetched_at.get(competition.key)
                 stale.setdefault(stamp or snapshot.now, []).append(entry)
         elif state == STATE_TEXT[NOT_FINISHED]:
             not_finished = True
-    hints = []
-    if fresh:
-        hints.append(LIVE_LAG)
-    hints += [_stale_live_sentence(snapshot, moment, entries) for moment, entries in sorted(stale.items())]
+    hints = [_stale_live_sentence(snapshot, moment, entries) for moment, entries in sorted(stale.items())]
     if not_finished:
         hints.append(NOT_FINISHED_NOTE)
     return hints
@@ -479,7 +493,9 @@ def match_entry(
     """Ein Spiel als flaches, vorlesbares Wörterbuch; Felder ohne Wert fehlen.
 
     Die Gründe für fehlende Felder liefert `match_hints` (bei laufenden Spielen `live_hints`). Ein
-    laufendes Spiel bekommt `ergebnis` und `tore` nur mit frischem Stand (`live_score_known`). Mit
+    laufendes Spiel bekommt `ergebnis` und `tore` nur mit frischem Stand (`live_score_known`), dann direkt
+    nach `ergebnis` auch `stand_von` (Uhrzeit des Abrufs, auf dem der Stand beruht) und `vorbehalt`
+    (`LIVE_SCORE_CAVEAT`); Modelle übernehmen Felder eines Spiels zuverlässiger als Sätze in den Hinweisen. Mit
     `team` kommen `gegner`, `ort` und `ausgang` aus Sicht dieses Vereins dazu; `ausgang` nennt den
     Stand mit den eigenen Toren zuerst, zum Beispiel „2:1-Sieg“. `ids` (Pflicht, wenn `team`
     gegeben ist) sind alle Kennungen des Vereins; ein Verein kann in mehreren Wettbewerben unter
@@ -520,6 +536,8 @@ def match_entry(
     live_known = state == LIVE and live_score_known(snapshot, competition, match)
     if live_known:
         entry["ergebnis"] = format_score(_running_score(match))
+        entry["stand_von"] = clock_phrase(snapshot.fetched_at[competition.key], tz)
+        entry["vorbehalt"] = LIVE_SCORE_CAVEAT
     if state not in (SCHEDULED, LIVE) or live_known:
         if match.goals and not unclear and not _scorers_missing(match):
             entry["tore"] = _goal_sentences(match)

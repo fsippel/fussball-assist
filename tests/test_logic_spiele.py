@@ -11,10 +11,18 @@ from custom_components.fussball_assist import logic_spiele
 from custom_components.fussball_assist.logic_spiele import MAX_DETAILED, answer
 from custom_components.fussball_assist.models import Phase, Score
 from custom_components.fussball_assist.parse import parse_matches
-from custom_components.fussball_assist.results import LIVE_LAG, ErrorKind, Settings, ToolError
+from custom_components.fussball_assist.results import LIVE_SCORE_CAVEAT, ErrorKind, Settings, ToolError
 from custom_components.fussball_assist.seasons import COMPETITION_KEYS
 
-from .conftest import BERLIN, SETTINGS_CLUB, assert_speakable, load_fixture, make_index, make_snapshot
+from .conftest import (
+    BERLIN,
+    SETTINGS_CLUB,
+    assert_speakable,
+    fetched_earlier,
+    load_fixture,
+    make_index,
+    make_snapshot,
+)
 
 NOW = datetime(2026, 11, 17, 16, 40, tzinfo=BERLIN)  # Dienstag
 ALL_NAMES = ["Bundesliga", "2. Bundesliga", "3. Liga", "Frauen-Bundesliga"]
@@ -63,6 +71,18 @@ def test_today_without_matches_names_the_next_day():
     assert result["naechster_tag_mit_spielen"] == "Freitag, 20. November, also in 3 Tagen"
     assert "grund" not in result
     assert hints(result, "Für Dienstag, 17. November sind in den ausgewählten Wettbewerben keine Spiele eingetragen.")
+
+
+def test_stand_follows_the_competitions_of_the_shown_matches():
+    # Am 1. Dezember spielt nur der DFB-Pokal; seine Spieldaten sind frisch, die der übrigen Wettbewerbe vom Vorabend.
+    snapshot = fetched_earlier(make_snapshot(NOW), datetime(2026, 11, 16, 20, 47, tzinfo=BERLIN), "dfb_pokal")
+    result = ask(snapshot, datum="2026-12-01")
+    assert names(result) == ["DFB-Pokal"]
+    assert result["stand"] == "17. November, 16:40 Uhr"
+    # Ohne gezeigtes Spiel beruht "keine Spiele" auf allen durchsuchten Wettbewerben: der älteste Abruf.
+    empty = ask(snapshot, datum="2026-11-30")
+    assert empty["wettbewerbe"] == []
+    assert empty["stand"] == "16. November, 20:47 Uhr"
 
 
 def test_break_is_explained_only_with_internationals():
@@ -237,8 +257,10 @@ def test_running_matches_come_first():
     spiele = games(result)
     assert [g["heim"] for g in spiele[:2]] == ["FC Augsburg", "SV Werder Bremen"]
     assert (spiele[2]["heim"], spiele[2]["wann"]) == ("FC Bayern München", "Freitag, 20. November, 20:30 Uhr")
-    assert all(g["ergebnis"] == "0:0" for g in spiele[:2])
-    assert LIVE_LAG in result["hinweise"] and hints(result, "noch nicht beendet")
+    assert all(g["ergebnis"] == "0:0" and g["vorbehalt"] == LIVE_SCORE_CAVEAT for g in spiele[:2])
+    assert all(g["stand_von"] == "18:00 Uhr" for g in spiele[:2])
+    assert not any("vorbehalt" in g for g in spiele[2:])
+    assert not hints(result, "hinterherhängen") and hints(result, "noch nicht beendet")
 
 
 def test_running_match_from_the_live_recording():
@@ -252,7 +274,8 @@ def test_running_match_from_the_live_recording():
     (bayern,) = group["spiele"]
     assert (bayern["zustand"], bayern["ergebnis"]) == ("läuft", "1:1")
     assert [t.split(":")[0] for t in bayern["tore"]] == ["23. Minute", "51. Minute"]
-    assert LIVE_LAG in result["hinweise"]
+    assert (bayern["stand_von"], bayern["vorbehalt"]) == ("21:45 Uhr", LIVE_SCORE_CAVEAT)
+    assert not hints(result, "hinterherhängen")
 
 
 def test_invalid_values_name_the_valid_ones():
@@ -502,7 +525,26 @@ def test_shortened_answer_has_at_most_thirty_matches_favorites_first():
 def test_biggest_answer_stays_small_enough_for_the_tool(settings, now):
     result = ask(make_snapshot(now), settings=settings, wettbewerb="alle", zeitraum="kommendes_wochenende")
     size = len(json.dumps(result, ensure_ascii=False))
-    assert size < 6000, size
+    # 8000 seit 0.1.3: Jedes laufende Spiel trägt Uhrzeit und Vorbehalt (`stand_von`, `vorbehalt`, zusammen etwa
+    # 125 Zeichen); im zweiten Fall laufen 6 der 30 Spiele. Schlimmster Fall gemessen 7589 Zeichen: ein ganzer
+    # Bundesliga-Spieltag läuft in einer gekürzten Antwort mit 30 Spielen (siehe den nächsten Test).
+    assert size < 8000, size
+
+
+def test_answer_with_a_whole_round_running_stays_small_enough_for_the_tool():
+    # Schlimmster realistischer Fall: der ganze 10. Spieltag der Bundesliga gleichzeitig um 15:30 Uhr (wie am
+    # letzten Spieltag), dazu die laufenden Spiele der anderen Ligen; gekürzte Antwort mit 30 Spielen.
+    # Gemessen 7589 Zeichen: 15 der 30 Spiele laufen, jedes mit `stand_von` und `vorbehalt`.
+    kickoff = datetime(2026, 11, 21, 15, 30, tzinfo=BERLIN)
+    base = make_snapshot(datetime(2026, 11, 21, 16, 10, tzinfo=BERLIN))
+    round_ten = tuple(
+        dataclasses.replace(m, kickoff=kickoff) if m.round_order == 10 else m for m in base.matches["bundesliga"]
+    )
+    snapshot = dataclasses.replace(base, matches=MappingProxyType({**base.matches, "bundesliga": round_ten}))
+    result = ask(snapshot, wettbewerb="alle", zeitraum="kommendes_wochenende")
+    assert result["gekuerzt"] is True and sum(g["zustand"] == "läuft" for g in games(result)) == 15
+    size = len(json.dumps(result, ensure_ascii=False))
+    assert size < 8000, size
 
 
 def _finish(snapshot, key, match_id):

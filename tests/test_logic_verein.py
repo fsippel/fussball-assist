@@ -8,13 +8,14 @@ import pytest
 
 from custom_components.fussball_assist.logic_verein import answer
 from custom_components.fussball_assist.parse import parse_matches
-from custom_components.fussball_assist.results import ErrorKind, Settings, ToolError
+from custom_components.fussball_assist.results import LIVE_SCORE_CAVEAT, ErrorKind, Settings, ToolError
 from custom_components.fussball_assist.seasons import COMPETITION_KEYS, load_season
 
 from .conftest import (
     BERLIN,
     SETTINGS_CLUB,
     assert_speakable,
+    fetched_earlier,
     load_fixture,
     make_index,
     make_snapshot,
@@ -71,6 +72,18 @@ def test_last_and_next_match_of_the_main_team():
     assert nxt["wann"] == "Samstag, 21. November, 13:00 Uhr" and nxt["bezug"] == "in 4 Tagen"
     assert nxt["ort"] == "heim" and nxt["uhrzeit_fest"] is True and nxt["zustand"] == "angesetzt"
     assert "ergebnis" not in nxt and "ausgang" not in nxt
+
+
+def test_stand_follows_the_competitions_of_the_shown_matches():
+    # Die Saisonliste des DFB-Pokals und der übrigen Wettbewerbe ist vom Vorabend, die 2. Bundesliga frisch.
+    snapshot = fetched_earlier(make_snapshot(NOW), datetime(2026, 11, 16, 20, 47, tzinfo=BERLIN), "2_bundesliga")
+    result = ask(snapshot, richtung="letzte")
+    assert [e["wettbewerb"] for e in result["letzte"]] == ["2. Bundesliga"]
+    assert result["stand"] == "17. November, 16:40 Uhr"
+    # Ohne gezeigtes Spiel beruht "kein Spiel" auf allen durchsuchten Wettbewerben: der älteste Abruf.
+    empty = ask(snapshot, gegner="Dortmund")
+    assert empty["letzte"] == [] and empty["naechste"] == []
+    assert empty["stand"] == "16. November, 20:47 Uhr"
 
 
 def test_nickname_and_count():
@@ -149,13 +162,127 @@ def test_cup_won_and_next_round_not_scheduled():
     assert result["hinweise"] == ["Die nächste Runde ist noch nicht angesetzt."]
 
 
+def _cup_final_of_bayern(own_goals, other_goals):
+    """Bayerns letztes Pokalspiel (2. Runde) als beendetes Finale; das Achtelfinale ist nicht eingetragen."""
+    full = make_snapshot(NOW)
+    matches = {**full.matches, "dfb_pokal": tuple(m for m in full.matches["dfb_pokal"] if m.id != 88752)}
+    snapshot = replace_match(
+        make_snapshot(NOW, matches=MappingProxyType(matches)), "dfb_pokal", 87633,
+        round_name="Finale",
+        final=dataclasses.replace(full.matches["dfb_pokal"][0].final, home=own_goals, away=other_goals),
+    )
+    return ask(snapshot, verein="Bayern", wettbewerb="dfb_pokal")
+
+
+def test_cup_final_won_says_competition_is_over():
+    result = _cup_final_of_bayern(6, 1)
+    assert result["letzte"][0]["ausgang"] == "6:1-Sieg" and result["naechste"] == []
+    assert result["hinweise"] == [
+        "FC Bayern München hat im DFB-Pokal das Finale gewonnen; der Wettbewerb ist für diese Saison vorbei."
+    ]
+    assert not hints(result, "nächste Runde")
+
+
+def test_cup_final_lost_says_competition_is_over():
+    result = _cup_final_of_bayern(1, 6)
+    assert result["letzte"][0]["ausgang"] == "1:6-Niederlage" and result["naechste"] == []
+    assert result["hinweise"] == [
+        "FC Bayern München hat im DFB-Pokal das Finale verloren; der Wettbewerb ist für diese Saison vorbei."
+    ]
+
+
+def _europe_without_trabzonspor_after(last_id, **changes):
+    """Trabzonspor in der Conference League bis zum Spiel `last_id` (geändert um `changes`), danach nichts."""
+    full = make_snapshot(NOW)
+    club = make_index(full).resolve("Trabzonspor").team
+    last = next(m for m in full.matches["conference_league"] if m.id == last_id)
+    matches = {
+        **full.matches,
+        "conference_league": tuple(
+            m for m in full.matches["conference_league"]
+            if not (club.id in (m.home.id, m.away.id) and m.kickoff > last.kickoff)
+        ),
+    }
+    snapshot = make_snapshot(NOW, matches=MappingProxyType(matches))
+    snapshot = replace_match(snapshot, "conference_league", last_id, **changes)
+    return ask(snapshot, index_from=full, verein="Trabzonspor", wettbewerb="conference_league")
+
+
+def _europe_final_of_trabzonspor(own_goals, other_goals):
+    """Trabzonspors Heimspiel gegen Freiburg (3. Spieltag der Ligaphase) als beendetes Finale."""
+    final = next(m for m in make_snapshot(NOW).matches["conference_league"] if m.id == 88323).final
+    return _europe_without_trabzonspor_after(
+        88323, round_name="Finale", final=dataclasses.replace(final, home=own_goals, away=other_goals)
+    )
+
+
+def test_european_final_won_says_competition_is_over():
+    result = _europe_final_of_trabzonspor(2, 1)
+    assert result["letzte"][0]["ausgang"] == "2:1-Sieg" and result["naechste"] == []
+    assert hints(result, "das Finale") == [
+        "Trabzonspor hat in der Conference League das Finale gewonnen; der Wettbewerb ist für diese Saison vorbei."
+    ]
+
+
+def test_european_final_lost_says_competition_is_over():
+    result = _europe_final_of_trabzonspor(0, 1)
+    assert result["letzte"][0]["ausgang"] == "0:1-Niederlage" and result["naechste"] == []
+    assert hints(result, "das Finale") == [
+        "Trabzonspor hat in der Conference League das Finale verloren; der Wettbewerb ist für diese Saison vorbei."
+    ]
+    assert not hints(result, "ausgelost") and not hints(result, "ausgeschieden")
+
+
+def test_european_final_drawn_in_the_data_stays_uncertain():
+    result = _europe_final_of_trabzonspor(1, 1)
+    assert not hints(result, "das Finale") and hints(result, "vielleicht noch nicht ausgelost")
+
+
+def test_won_european_match_that_is_no_final_stays_uncertain():
+    # Trabzonspor gewann am 2. Spieltag 2:0 gegen Hearts; danach ist nichts eingetragen.
+    result = _europe_without_trabzonspor_after(88306)
+    assert result["letzte"][0]["ausgang"] == "2:0-Sieg" and result["naechste"] == []
+    assert not hints(result, "das Finale") and not hints(result, "nächste Runde ist noch nicht")
+    assert hints(result, "vielleicht noch nicht ausgelost")
+
+
 def test_club_without_any_match_in_the_competition_does_not_play_there():
     result = ask(wettbewerb="champions_league")
     assert result["letzte"] == [] and result["naechste"] == []
-    assert result["hinweise"] == ["1. FC Nürnberg spielt in dieser Saison nicht in der Champions League."]
+    assert result["hinweise"] == ["1. FC Nürnberg spielt in dieser Saison nicht in der Champions League.", ELSEWHERE]
     result = ask(verein="Darmstadt", wettbewerb="DFB-Pokal", richtung="letzte")
     assert result["letzte"] != []  # Darmstadt spielt im Pokal: kein solcher Satz
     assert not hints(result, "spielt in dieser Saison nicht")
+
+
+ELSEWHERE = "Spiele von 1. FC Nürnberg gibt es in den Daten in der 2. Bundesliga und im DFB-Pokal."
+
+
+def test_competition_without_any_match_of_the_club_names_where_it_plays():
+    result = ask(verein="Glubb", wettbewerb="bundesliga")
+    assert result["letzte"] == [] and result["naechste"] == []
+    assert result["hinweise"] == [
+        "Für 1. FC Nürnberg ist im Wettbewerb Bundesliga kein Spiel gespielt.",
+        "Für 1. FC Nürnberg ist im Wettbewerb Bundesliga kein Spiel angesetzt.",
+        ELSEWHERE,
+    ]
+    # Nur geladene, erreichbare Wettbewerbe zählen.
+    snapshot = make_snapshot(NOW, unreachable=frozenset({"dfb_pokal"}))
+    assert hints(ask(snapshot, verein="Glubb", wettbewerb="bundesliga"), "Spiele von") == [
+        "Spiele von 1. FC Nürnberg gibt es in den Daten in der 2. Bundesliga."
+    ]
+
+
+def test_no_hint_on_other_competitions_when_the_club_plays_in_the_chosen_one():
+    result = ask(verein="Bayern", wettbewerb="bundesliga")
+    assert result["letzte"] and result["naechste"]
+    assert not hints(result, "Spiele von")
+    # Auch wenn die gefragte Richtung leer ist: Nürnberg spielt in der 2. Bundesliga, nur nicht gegen Bayern.
+    result = ask(gegner="Bayern", wettbewerb="2_bundesliga")
+    assert result["letzte"] == [] and result["naechste"] == []
+    assert not hints(result, "Spiele von")
+    result = ask(verein="Deutschland", wettbewerb="nationalmannschaft", richtung="naechste")
+    assert result["naechste"] == [] and not hints(result, "Spiele von")
 
 
 def _with_cup(key, keep):
@@ -166,14 +293,19 @@ def _with_cup(key, keep):
 
 
 @pytest.mark.parametrize(
-    ("key", "name"), [("champions_league", "in der Champions League"), ("dfb_pokal", "im DFB-Pokal")]
+    ("key", "name", "elsewhere"),
+    [
+        ("champions_league", "in der Champions League", ELSEWHERE),
+        ("dfb_pokal", "im DFB-Pokal", "Spiele von 1. FC Nürnberg gibt es in den Daten in der 2. Bundesliga."),
+    ],
 )
-def test_empty_cup_list_says_no_match_yet_instead_of_not_taking_part(key, name):
+def test_empty_cup_list_says_no_match_yet_instead_of_not_taking_part(key, name, elsewhere):
     result = ask(_with_cup(key, lambda m: False), wettbewerb=key)
     assert result["letzte"] == [] and result["naechste"] == []
     assert result["hinweise"] == [
         f"Für 1. FC Nürnberg ist {name} noch kein Spiel gespielt.",
         f"Für 1. FC Nürnberg ist {name} noch kein Spiel angesetzt.",
+        elsewhere,
     ]
 
 
@@ -181,7 +313,10 @@ def test_cup_list_with_only_scheduled_matches_says_no_match_yet():
     snapshot = _with_cup("champions_league", lambda m: m.kickoff > make_snapshot(NOW).now)
     assert snapshot.matches["champions_league"]  # angesetzte Spiele, keins beendet, Nürnberg nicht dabei
     result = ask(snapshot, wettbewerb="champions_league", richtung="naechste")
-    assert result["hinweise"] == ["Für 1. FC Nürnberg ist in der Champions League noch kein Spiel angesetzt."]
+    assert result["hinweise"] == [
+        "Für 1. FC Nürnberg ist in der Champions League noch kein Spiel angesetzt.",
+        ELSEWHERE,
+    ]
 
 
 def test_european_cup_with_a_club_entering_after_the_first_round_says_no_match_yet():
@@ -191,7 +326,10 @@ def test_european_cup_with_a_club_entering_after_the_first_round_says_no_match_y
     late = make_index(full).resolve("Bayern").team
     snapshot = _with_cup("champions_league", lambda m: not (m.round_order == 1 and late.id in (m.home.id, m.away.id)))
     result = ask(snapshot, index_from=full, wettbewerb="champions_league", richtung="naechste")
-    assert result["hinweise"] == ["Für 1. FC Nürnberg ist in der Champions League noch kein Spiel angesetzt."]
+    assert result["hinweise"] == [
+        "Für 1. FC Nürnberg ist in der Champions League noch kein Spiel angesetzt.",
+        ELSEWHERE,
+    ]
 
 
 def test_cup_status_is_not_claimed_while_data_is_missing():
@@ -252,7 +390,9 @@ def test_running_match_shows_score_and_time():
     assert "ausgang" not in running
     assert running["tore"] == ["23. Minute: M. Olise (FC Bayern München)", "51. Minute: S. El Mala (1. FC Köln)"]
     assert result["stand"] == "20. November, 21:45 Uhr"
-    assert "Der Stand kann einige Minuten hinterherhängen." in result["hinweise"]
+    assert running["stand_von"] == "21:45 Uhr"
+    assert running["vorbehalt"] == LIVE_SCORE_CAVEAT
+    assert not hints(result, "hinterherhängen")
     assert result["letzte"][1]["zustand"] == "beendet"
 
 

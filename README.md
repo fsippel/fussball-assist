@@ -20,10 +20,25 @@ Vereine werden unter ihrem Namen, Kurznamen, Kürzel oder Spitznamen erkannt (�
 
 - Home Assistant 2026.10 oder neuer
 - ein Sprachmodell als Konversationsagent, der die Assist-Schnittstelle nutzt (in den Einstellungen des Agenten muss unter „Home Assistant steuern“ die Schnittstelle „Assist“ gewählt sein, sonst sieht er die Werkzeuge nicht)
-- [HACS](https://hacs.xyz) für die Installation
+- für die Installation der Marketplace von Home Assistant (ab 2026.11 eingebaut, der Nachfolger von HACS) oder unter Home Assistant 2026.10 noch [HACS](https://hacs.xyz)
+- eine GitHub-Verbindung im Marketplace beziehungsweise in HACS, weil Fußball-Assist nicht im Standardkatalog steht und über seinen Link hinzugefügt wird
 - eine Internetverbindung von Home Assistant zu `api.openligadb.de`
 
-## Installation über HACS
+## Installation
+
+Seit Home Assistant 2026.11 ist HACS als **Marketplace** fest eingebaut; ein getrenntes HACS lässt sich dort nicht mehr installieren. Wer von einer älteren Version aktualisiert, behält seine über HACS installierten Inhalte: Der Marketplace übernimmt sie beim ersten Start.
+
+### Home Assistant 2026.11 oder neuer: Marketplace
+
+1. **Einstellungen > Marketplace** öffnen (nur für Administratoren sichtbar).
+2. Oben rechts **Add from link** wählen.
+3. Unter **GitHub link** `https://github.com/fsippel/fussball-assist` eintragen und **Add** wählen. Fragt der Marketplace nach dem Typ, **Integration** wählen. Dafür muss der Marketplace mit GitHub verbunden sein.
+4. Die Seite von Fußball-Assist öffnen, **Install** wählen, die Version prüfen und noch einmal **Install** wählen.
+5. Danach öffnet sich in der Regel gleich die Einrichtung. Verlangt Home Assistant stattdessen einen Neustart, erscheint dazu eine Meldung unter **Einstellungen > System > Reparaturen**, die den Neustart auch auslösen kann.
+
+Die Bezeichnungen stammen aus der englischen Oberfläche und können in der deutschen anders lauten. Updates der Integration brauchen weiterhin einen Neustart.
+
+### Home Assistant 2026.10: HACS
 
 1. In Home Assistant HACS öffnen.
 2. Oben rechts auf die drei Punkte tippen und **Benutzerdefinierte Repositories** („Custom repositories“) wählen.
@@ -77,7 +92,7 @@ Jede Saison braucht eine eigene Datei mit der Zuordnung der Wettbewerbe. Enthalt
 
 Fußball-Assist liefert nur Ergebnisse, Termine, Tabellen, Torjäger und die Auswahl der Woche, und nur das, was in OpenLigaDB steht. Zu Kadern, Trainern, Transfers, Aufstellungen, Karten, Schiedsrichtern, Zuschauerzahlen, dem Spielort eines bestimmten Spiels, Fernsehübertragungen, Tickets, Spielabsagen, Auslosungs- und Finalterminen und aktuellen Titelträgern gibt es keine Daten, ebenso wenig zur aktuellen Spielminute und zur ewigen Bilanz zweier Vereine. Prognosen, Wahrscheinlichkeiten oder Tipps gibt der Assistent nicht ab. Damit das Sprachmodell dazu nicht aus veraltetem Wissen antwortet, bringt die Integration eine kurze Anweisung mit, die Home Assistant in die Anweisungen jedes Agenten mit Assist-Schnittstelle übernimmt: Er soll bei Fußballfragen die Werkzeuge nutzen, ehrlich sagen, wenn sie nichts liefern, bei den meisten der genannten Themen sagen, dass er es nicht weiß, und keine Prognosen abgeben. Das gilt für alle Assist-Pipelines, nicht nur für eine. Allgemeines Fußballwissen („Was ist Abseits?“) beantwortet das Sprachmodell weiterhin selbst.
 
-Die Daten sind nicht live: Ein laufendes Spiel kann einige Minuten hinterherhängen, und Uhrzeiten nennt das Werkzeug nur, wenn die Quelle sie als feststehend führt.
+Die Daten sind nicht live: Der Stand eines laufenden Spiels kann ein paar Minuten hinterherhängen, Tore kommen oft erst später in den Daten an, und Uhrzeiten nennt das Werkzeug nur, wenn die Quelle sie als feststehend führt.
 
 ## Datenquelle
 

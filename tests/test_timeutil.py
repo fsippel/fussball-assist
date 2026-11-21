@@ -140,6 +140,12 @@ def test_unknown_period_raises_value_error():
         (timedelta(hours=30), "in 1 Tag"),
         (timedelta(seconds=40), "jetzt"),
         (timedelta(minutes=-5), "jetzt"),
+        (timedelta(hours=1, minutes=59), "in 2 Stunden"),
+        (timedelta(hours=1, minutes=29), "in 1 Stunde"),
+        (timedelta(hours=1, minutes=30, seconds=1), "in 2 Stunden"),
+        (timedelta(minutes=59, seconds=40), "in 1 Stunde"),
+        (timedelta(hours=23, minutes=40), "in 1 Tag"),
+        (timedelta(minutes=4, seconds=31), "in 5 Minuten"),
     ],
 )
 def test_countdown_phrase(delta, phrase):

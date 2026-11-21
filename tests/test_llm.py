@@ -50,6 +50,8 @@ async def test_five_tools_and_the_prompt(hass, config_entry, llm_context):
     assert "bei welchem Verein ein Spieler spielt" in PROMPT and "wenn du es zu wissen glaubst" in PROMPT
     # Aus „M. Olise“ darf kein erfundener Vorname werden.
     assert "nur den Nachnamen" in PROMPT and "ergänze keinen Vornamen" in PROMPT
+    # Laufende Spiele: Uhrzeit des Stands und Vorbehalt nennen, keine Spielminute erfinden.
+    assert "von wann er ist" in PROMPT and "Spielminute oder Halbzeit" in PROMPT
 
 
 async def test_club_tool_description_names_the_outcome_from_the_view_of_the_club(hass, config_entry, llm_context):
@@ -342,3 +344,10 @@ async def test_exact_name_answers_while_competitions_are_loading(hass, config_en
     _spy(monkeypatch, config_entry.runtime_data.store, lambda **_: _partly_loaded(base))
     result = await call(hass, llm_context, "verein", {"verein": name})
     assert result.error is False and result.data["verein"] == "Eintracht Frankfurt"
+
+
+async def test_tool_descriptions_use_neutral_examples(hass, config_entry, llm_context):
+    _, tools = await _our_tools(hass, llm_context)
+    for name in ("verein", "tabelle"):
+        description = tools[name].description
+        assert "Club" not in description and "Fürth" not in description, name

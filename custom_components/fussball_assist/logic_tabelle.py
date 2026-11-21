@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import UTC
 from typing import Any
 
 from .models import TableRow, Team
@@ -26,7 +27,7 @@ from .results import (
     unknown_team_error,
 )
 from .seasons import Competition, Kind, Zone, zone_of
-from .store import Snapshot
+from .store import LIVE, Snapshot, match_state
 from .teams import TeamIndex
 
 SECTIONS = ("spitze", "ende", "ganz")
@@ -39,6 +40,9 @@ LEAGUE_PHASE = (
     "Für die Plätze der Ligaphase nenne ich keine Zonen; welche Plätze weiterkommen, ist in dieser Version nicht enthalten."
 )
 UNEQUAL_GAMES = "Die Vereine haben unterschiedlich viele Spiele; die Abstände zählen nur die Punkte."
+RUNNING_COUNTED = (
+    "Die Tabelle rechnet laufende Spiele mit dem aktuellen Stand ein; bis zum Abpfiff kann sie sich noch ändern."
+)
 
 
 def _check_section(value: Any) -> str:
@@ -245,6 +249,7 @@ def answer(
     Bundesliga; die Liga eines Vereins ist die gewählte Liga (ohne Frauen), in deren Spielliste er steht. Lässt
     sie sich nicht sicher bestimmen, weil Spiele fehlen, wirft die Antwort den Ladefehler. Der Wettbewerb
     muss eine Tabelle haben; Pokal und Nationalmannschaft werfen `UNSUPPORTED`. `abstaende` gibt es nur mit Verein.
+    Rechnet die Tabelle ein laufendes Spiel ein (siehe `_counts_running_match`), sagt ein Hinweis das dazu.
     """
     section = _check_section(ausschnitt)
     competitions = snapshot.season.competitions
@@ -287,10 +292,26 @@ def answer(
         hints.append(LEAGUE_PHASE)
     elif competition.zones and any("zone" not in entry for entry in result["zeilen"]):
         hints.append(ZONES_EXPLAINED)
+    if _counts_running_match(snapshot, key):
+        hints.append(RUNNING_COUNTED)
     hints += table_stale_hints(snapshot, [key])
     hints += season_hints(snapshot, [key])
     result["hinweise"] = unique(hints)
     return result
+
+
+def _counts_running_match(snapshot: Snapshot, key: str) -> bool:
+    """Läuft im Wettbewerb ein Spiel, das schon vor dem Abruf der Tabelle angepfiffen war?
+
+    OpenLigaDB rechnet laufende Spiele mit dem aktuellen Stand in die Tabelle ein; eine vor dem Anstoß
+    abgerufene Tabelle enthält das Spiel aber noch nicht. Ohne Abrufzeit der Tabelle gilt das als nicht sicher.
+    """
+    stamp = snapshot.tables_at.get(key)
+    if stamp is None:
+        return False
+    stamp = stamp.astimezone(UTC)
+    matches = snapshot.matches.get(key, ())
+    return any(match_state(m, snapshot.now) == LIVE and m.kickoff.astimezone(UTC) < stamp for m in matches)
 
 
 def _in_no_league(team: Team, foreign: bool) -> ToolError:

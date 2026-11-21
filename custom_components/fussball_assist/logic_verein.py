@@ -14,6 +14,7 @@ from .results import (
     available,
     given,
     guard,
+    is_final_round,
     join_names,
     live_hints,
     loading_error,
@@ -27,7 +28,7 @@ from .results import (
     season_hints,
     season_started,
     season_label,
-    stand_phrase,
+    shown_stand,
     unknown_team_error,
     unique,
 )
@@ -151,6 +152,7 @@ def answer(
     Reihenfolge der Prüfung: Eingaben, Wettbewerbe (`guard`), Verein auflösen. Ist der Verein
     mehrdeutig oder nicht bekannt, kommt eine Rückfrage (ohne `stand`, sie enthält keine Daten)
     oder ein Fehler. Bei `richtung` "letzte" oder "naechste" steht nur die jeweilige Liste im Ergebnis.
+    `stand` richtet sich nach den Wettbewerben der gezeigten Spiele, ohne gezeigtes Spiel nach allen durchsuchten.
     """
     direction = _check_direction(richtung)
     count = _check_count(anzahl)
@@ -242,7 +244,7 @@ def answer(
                 f"Für die neue Saison gibt es noch kein beendetes Spiel; das letzte Spiel ist aus der Saison {label}."
             )
 
-    result: dict[str, Any] = {"verein": subject.name, "stand": stand_phrase(snapshot, usable)}
+    result: dict[str, Any] = {"verein": subject.name, "stand": None}  # nach den gezeigten Spielen, siehe unten
     shown: list[tuple[Match, dict[str, Any], Competition]] = []
     for key, wanted, chosen, source in (
         ("letzte", "naechste", past, past_source),
@@ -267,6 +269,7 @@ def answer(
         ]
         result[key] = [entry for _, entry, _ in built]
         shown += built
+    result["stand"] = shown_stand(snapshot, usable, (competition.key for _, _, competition in shown))
 
     for match, entry, _ in shown:
         hints += match_hints(match, entry)
@@ -274,6 +277,8 @@ def answer(
     hints += _empty_hints(
         snapshot, result, subject, ids, national, usable, opponent_name, wettbewerb, nur_heimspiele, complete, candidates
     )
+    if given(wettbewerb) is not None and not national:
+        hints += _elsewhere_hints(snapshot, subject, ids, usable, searchable)
     hints += season_hints(snapshot, usable, upcoming=direction != "letzte")
     hints += loading_hints(snapshot, relevant)
     # Der Hinweis auf Auslandsvereine stimmt erst, wenn jeder inländische Wettbewerb, in dem ein Verein vorkommen
@@ -296,6 +301,29 @@ def _no_such_games(national: bool, competition_given: bool) -> ToolError:
     return ToolError(
         ErrorKind.UNKNOWN_TEAM, "Die Nationalmannschaft habe ich nicht. Sie gehört nicht zu den ausgewählten Wettbewerben."
     )
+
+
+def _elsewhere_hints(
+    snapshot: Snapshot, subject: Team, ids: frozenset[int], usable: Sequence[str], searchable: Sequence[str]
+) -> list[str]:
+    """Hat der Verein im gefragten Wettbewerb gar kein Spiel, ein Satz, in welchen anderen er Spiele hat.
+
+    Gezählt werden alle Spiele dieser Saison (jeder Zustand, ohne die Filter der Frage), und nur in geladenen,
+    erreichbaren Wettbewerben, in denen sonst nach dem Verein gesucht würde (ohne Frauen und Nationalmannschaft),
+    in der Reihenfolge der Saisondatei. So kann das Modell ohne Filter oder mit dem richtigen Wettbewerb neu fragen.
+    """
+
+    def plays(key: str) -> bool:
+        return any({m.home.id, m.away.id} & ids for m in snapshot.matches.get(key, ()))
+
+    if any(plays(k) for k in usable):
+        return []
+    competitions = snapshot.season.competitions
+    others = available(snapshot, (k for k in competitions if k in searchable and k not in usable))
+    where = [_in(competitions[k]) for k in others if plays(k)]
+    if not where:
+        return []
+    return [f"Spiele von {subject.name} gibt es in den Daten {join_names(where)}."]
 
 
 def _in(competition: Competition) -> str:
@@ -328,16 +356,19 @@ def _all_entered(snapshot: Snapshot, key: str, cup: Competition) -> bool:
 def _cup_status(snapshot: Snapshot, subject: Team, ids: frozenset[int], cup: Competition, matches: Sequence[Match]) -> str:
     """Warum im Pokal oder Europapokal kein nächstes Spiel eingetragen ist (die Daten sind vollständig).
 
-    Im Pokal entscheidet ein Spiel: Ist das letzte beendet und verloren (auch nach Verlängerung oder im
-    Elfmeterschießen), ist der Verein ausgeschieden; gewonnen heißt, die nächste Runde ist noch nicht angesetzt.
-    Im Europapokal sagt ein einzelnes Ergebnis nichts Sicheres (Ligaphase, Hin- und Rückspiel).
+    Ist das letzte beendete Spiel des Vereins ein Endspiel mit eindeutigem Sieger (Pokal und Europapokal), ist
+    der Wettbewerb vorbei, gewonnen oder verloren. Sonst entscheidet im Pokal ein Spiel: Ist das letzte beendet
+    und verloren (auch nach Verlängerung oder im Elfmeterschießen), ist der Verein ausgeschieden; gewonnen
+    heißt, die nächste Runde ist noch nicht angesetzt. Im Europapokal sagt ein einzelnes Ergebnis außerhalb
+    des Finales nichts Sicheres (Ligaphase, Hin- und Rückspiel). Läuft ein Spiel oder ist eines laut Daten
+    nicht beendet, ist nichts sicher.
     """
     now = snapshot.now
     uncertain = (
         f"Im Wettbewerb {cup.name} ist für {subject.name} noch nicht angesetzt, wer der nächste Gegner ist:"
         " Die nächste Runde ist vielleicht noch nicht ausgelost, oder der Verein ist ausgeschieden."
     )
-    if cup.kind is not Kind.CUP or any(match_state(m, now) in (LIVE, NOT_FINISHED) for m in matches):
+    if any(match_state(m, now) in (LIVE, NOT_FINISHED) for m in matches):
         return uncertain
     finished = [m for m in matches if match_state(m, now) == FINISHED]
     if not finished:
@@ -346,6 +377,11 @@ def _cup_status(snapshot: Snapshot, subject: Team, ids: frozenset[int], cup: Com
     if last.result_unclear or last.final is None or (last.home.id in ids) == (last.away.id in ids):
         return uncertain
     own, other = (last.final.home, last.final.away) if last.home.id in ids else (last.final.away, last.final.home)
+    if own != other and is_final_round(cup, last):
+        outcome = "gewonnen" if own > other else "verloren"
+        return f"{subject.name} hat {_in(cup)} das Finale {outcome}; der Wettbewerb ist für diese Saison vorbei."
+    if cup.kind is not Kind.CUP:
+        return uncertain
     if own < other:
         return f"{subject.name} ist {_in(cup)} ausgeschieden."
     if own > other:

@@ -14,7 +14,15 @@ from custom_components.fussball_assist.models import Score, TableRow, Team
 from custom_components.fussball_assist.results import ErrorKind, Settings, ToolError
 from custom_components.fussball_assist.seasons import COMPETITION_KEYS
 
-from .conftest import BERLIN, SETTINGS_CLUB, assert_speakable, make_index, make_snapshot, replace_match
+from .conftest import (
+    BERLIN,
+    SETTINGS_CLUB,
+    assert_speakable,
+    fetched_earlier,
+    make_index,
+    make_snapshot,
+    replace_match,
+)
 
 NOW = datetime(2026, 11, 17, 16, 40, tzinfo=BERLIN)  # Dienstag; die Woche reicht bis Sonntag, 22. November
 NO_CLUBS = Settings(competitions=COMPETITION_KEYS, main_team=None, favorite_teams=())
@@ -306,7 +314,20 @@ def test_this_week_starts_today_and_skips_finished_matches():
     assert pairs(result)[0] == ("1. FC Nürnberg", "Eintracht Braunschweig")
     assert result["spiele"][0]["zustand"] == "läuft" and result["spiele"][0]["ergebnis"] == "0:0"
     assert ("Hannover 96", "SpVgg Greuther Fürth") not in pairs(result)
-    assert hints(result, "hinterherhängen")
+    assert result["spiele"][0]["stand_von"] == "14:00 Uhr" and "hinterherhängen" in result["spiele"][0]["vorbehalt"]
+    assert not hints(result, "hinterherhängen")
+
+
+def test_stand_follows_the_competitions_of_the_shown_matches():
+    # Nur die Spieldaten der 2. Bundesliga sind frisch, die der übrigen Wettbewerbe vom Vorabend; Tabellen sind frisch.
+    snapshot = fetched_earlier(make_snapshot(NOW), datetime(2026, 11, 16, 20, 47, tzinfo=BERLIN), "2_bundesliga")
+    result = ask(snapshot, derbies=())
+    assert {g["wettbewerb"] for g in result["spiele"]} == {"2. Bundesliga"}
+    assert result["stand"] == "17. November, 16:40 Uhr"
+    # Ohne gezeigtes Spiel beruht "nichts Besonderes" auf allen durchsuchten Wettbewerben: der älteste Abruf.
+    empty = ask(snapshot, MEN_LEAGUES, derbies=())
+    assert empty["spiele"] == []
+    assert empty["stand"] == "16. November, 20:47 Uhr"
 
 
 def test_quiet_week_names_the_next_round():

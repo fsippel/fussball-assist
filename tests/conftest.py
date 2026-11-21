@@ -122,6 +122,12 @@ def replace_match(snapshot: Snapshot, competition: str, match_id: int, **changes
     return dataclasses.replace(snapshot, matches=MappingProxyType(matches))
 
 
+def fetched_earlier(snapshot: Snapshot, earlier: datetime, *fresh: str) -> Snapshot:
+    """Momentaufnahme, in der die Spieldaten aller Wettbewerbe außer `fresh` schon um `earlier` abgerufen sind."""
+    stamps = {key: stamp if key in fresh else earlier.astimezone(UTC) for key, stamp in snapshot.fetched_at.items()}
+    return dataclasses.replace(snapshot, fetched_at=MappingProxyType(stamps))
+
+
 _FORBIDDEN_KEYS = frozenset({"id", "teamId", "team_id", "matchId", "match_id", "url", "icon", "crest"})
 
 

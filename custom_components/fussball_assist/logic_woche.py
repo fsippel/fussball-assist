@@ -47,7 +47,7 @@ from .results import (
     round_text,
     same_round_matches,
     season_hints,
-    stand_phrase,
+    shown_stand,
     table_stale_hints,
     unique,
 )
@@ -160,6 +160,8 @@ def answer(
     Ob in der Woche nichts Besonderes ansteht, steht nur dann fest, wenn alle gewählten Wettbewerbe
     und die Tabellen aller gewählten Ligen vollständig geladen sind; sonst steht stattdessen, dass es nur
     für die bisher geladenen Daten gilt, und was fehlt. Spitzenspiele erkennt die Antwort nur mit Tabelle.
+    `stand` richtet sich nach den Wettbewerben der gezeigten Spiele (ohne gezeigtes Spiel nach allen geladenen)
+    und den Tabellen der gewählten Ligen.
     """
     week = _check_week(woche)
     competitions = snapshot.season.competitions
@@ -262,7 +264,7 @@ def answer(
     hints += loading_hints(snapshot, relevant)
     return {
         "zeitraum": range_phrase(first, end, current_year=local_day(snapshot.now, snapshot.tz).year),
-        "stand": stand_phrase(snapshot, loaded, tables=tables),
+        "stand": shown_stand(snapshot, loaded, (competition.key for _, _, competition in shown), tables=tables),
         "spiele": entries,
         "hinweise": unique(hints),
     }

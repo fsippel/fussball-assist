@@ -63,10 +63,26 @@ def test_unfinished_match_has_no_result():
     assert not m.finished and m.final is None and m.goals == ()
 
 
-def test_running_match_reads_score_from_goals():
-    m = next(m for m in parse_matches(load_fixture("live_synthetisch")) if m.id == 83237)
-    assert not m.finished and m.final is None
-    assert (m.goals[-1].home, m.goals[-1].away) == (1, 1)
+@pytest.mark.parametrize(
+    ("fixture", "match_id", "score"),
+    [
+        ("live_synthetisch", 83237, (1, 1)),
+        # Echte Aufzeichnung: "Halbzeit" 0:0 schon in der ersten Halbzeit, "Endergebnis" trägt den Zwischenstand 1:0.
+        ("live_echt", 83699, (1, 0)),
+    ],
+)
+def test_running_match_reads_score_from_goals(fixture, match_id, score):
+    m = next(m for m in parse_matches(load_fixture(fixture)) if m.id == match_id)
+    assert not m.finished and (m.final, m.final_phase, m.regular) == (None, None, None)
+    assert not m.result_unclear
+    assert (m.goals[-1].home, m.goals[-1].away) == score
+
+
+def test_running_matches_without_goals_in_the_real_recording():
+    matches = {m.id: m for m in parse_matches(load_fixture("live_echt"))}
+    for match_id in (83694, 83689):  # Hannover – Fürth und Wolfsburg – Kiel laufen, 0:0
+        m = matches[match_id]
+        assert not m.finished and m.goals == () and m.final is None
 
 
 def test_unfinished_match_ignores_interim_results():

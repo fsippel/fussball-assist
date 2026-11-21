@@ -11,6 +11,7 @@ from homeassistant.helpers import llm
 from custom_components.fussball_assist import logic_spiele, logic_tabelle, logic_torjaeger, logic_verein
 from custom_components.fussball_assist.api import RateLimited
 from custom_components.fussball_assist.const import API_BASE, CONF_COMPETITIONS, CONF_FAVORITE_TEAMS, CONF_MAIN_TEAM
+from custom_components.fussball_assist.results import LIVE_SCORE_CAVEAT
 from custom_components.fussball_assist.seasons import COMPETITION_KEYS
 from custom_components.fussball_assist.teams import TeamIndex, load_aliases
 
@@ -46,7 +47,8 @@ async def test_source_gone_after_the_warm_up_running_match_has_no_score():
         result = _club(snapshot)
         (game,) = result["letzte"]
         assert game["zustand"] == "läuft" and "ergebnis" not in game and "tore" not in game
-        assert "Der Stand kann einige Minuten hinterherhängen." not in result["hinweise"]
+        assert "stand_von" not in game and "vorbehalt" not in game
+        assert not any("hinterherhängen" in h for h in result["hinweise"])
         assert (
             "Das Spiel 1. FC Nürnberg gegen Eintracht Braunschweig läuft; mein letzter Stand ist von 08:00 Uhr,"
             " deshalb kann ich keinen Spielstand sagen."
@@ -55,9 +57,9 @@ async def test_source_gone_after_the_warm_up_running_match_has_no_score():
         assert_speakable(result)
         day = logic_spiele.answer(snapshot, SETTINGS_CLUB, wettbewerb="2_bundesliga", zeitraum="heute", datum=None)
         running = [s for g in day["wettbewerbe"] for s in g["spiele"] if s["zustand"] == "läuft"]
-        assert len(running) == 3 and not any("ergebnis" in s for s in running)
+        assert len(running) == 3 and not any("ergebnis" in s or "vorbehalt" in s for s in running)
         assert any(h.startswith("3 Spiele laufen; mein letzter Stand ist von 08:00 Uhr") for h in day["hinweise"])
-        assert "Der Stand kann einige Minuten hinterherhängen." not in day["hinweise"]
+        assert not any("hinterherhängen" in h for h in day["hinweise"])
 
 
 async def test_fresh_round_gives_the_running_score():
@@ -73,9 +75,12 @@ async def test_fresh_round_gives_the_running_score():
     (game,) = result["letzte"]
     assert game["zustand"] == "läuft" and game["ergebnis"] == "1:0"
     assert game["tore"] == ["23. Minute: R. Lubach (1. FC Nürnberg)"]
-    assert "Der Stand kann einige Minuten hinterherhängen." in result["hinweise"]
+    assert game["stand_von"] == "13:40 Uhr"
+    assert game["vorbehalt"] == LIVE_SCORE_CAVEAT
+    assert not any("hinterherhängen" in h for h in result["hinweise"])
     assert not any("keinen Spielstand" in h for h in result["hinweise"])
-    assert result["stand"] == "21. November, 08:00 Uhr"  # die übrigen Wettbewerbe sind von 08:00 Uhr
+    # Nur der Wettbewerb des gezeigten Spiels zählt; die übrigen Wettbewerbe (von 08:00 Uhr) überdecken ihn nicht.
+    assert result["stand"] == "21. November, 13:40 Uhr"
     assert _club(await store.async_snapshot(COMPETITION_KEYS), wettbewerb="2_bundesliga")["stand"] == "21. November, 13:40 Uhr"
     # Elf Minuten später ohne neuen Abruf (Quelle weg): kein Spielstand mehr.
     client.fail = True
@@ -219,11 +224,12 @@ async def test_running_match_while_the_source_is_gone_has_no_score(
     assert result.error is False
     (game,) = result.data["letzte"]
     assert game["zustand"] == "läuft" and "ergebnis" not in game and "tore" not in game
+    assert "stand_von" not in game and "vorbehalt" not in game
     assert (
         "Das Spiel 1. FC Nürnberg gegen Eintracht Braunschweig läuft; mein letzter Stand ist von 08:00 Uhr,"
         " deshalb kann ich keinen Spielstand sagen."
     ) in result.data["hinweise"]
-    assert "Der Stand kann einige Minuten hinterherhängen." not in result.data["hinweise"]
+    assert not any("hinterherhängen" in h for h in result.data["hinweise"])
     # Die Quelle ist wieder da und liefert die laufende Runde: jetzt mit Spielstand.
     goal = {"goalID": 900001, "scoreTeam1": 1, "scoreTeam2": 0, "matchMinute": 23, "goalGetterID": 1,
             "goalGetterName": "R. Lubach", "scoringTeamId": 79, "isPenalty": False, "isOwnGoal": False,
@@ -240,7 +246,9 @@ async def test_running_match_while_the_source_is_gone_has_no_score(
     result = await _call(hass, llm_context, "verein", {"richtung": "letzte"})
     (game,) = result.data["letzte"]
     assert game["ergebnis"] == "1:0" and game["tore"] == ["23. Minute: R. Lubach (1. FC Nürnberg)"]
-    assert "Der Stand kann einige Minuten hinterherhängen." in result.data["hinweise"]
+    assert game["stand_von"] == "13:42 Uhr"
+    assert game["vorbehalt"] == LIVE_SCORE_CAVEAT
+    assert not any("hinterherhängen" in h for h in result.data["hinweise"])
 
 
 async def test_season_list_empty_again_and_again_under_the_limit_backs_off_and_other_lists_stay_fresh(

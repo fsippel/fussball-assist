@@ -39,7 +39,9 @@ PROMPT = (
     " Daten: Sag, dass du das nicht weißt. Sag auch dann nicht, bei welchem Verein ein Spieler spielt, wer"
     " Trainer ist oder wer im Kader steht, wenn du es zu wissen glaubst. Gib keine Prognosen, Wahrscheinlichkeiten oder Tipps ab. Nenne eine"
     " Uhrzeit nur, wenn das Werkzeug sie als feststehend liefert. Steht vor einem Spielernamen nur ein"
-    " Anfangsbuchstabe, nenne nur den Nachnamen und ergänze keinen Vornamen."
+    " Anfangsbuchstabe, nenne nur den Nachnamen und ergänze keinen Vornamen. Nennst du den Stand eines laufenden"
+    " Spiels, sag immer dazu, von wann er ist und dass er ein paar Minuten hinterherhängen kann. Sag bei laufenden"
+    " Spielen nichts über Spielminute oder Halbzeit; das liefern die Werkzeuge nicht."
 )
 
 VEREIN, SPIELE, TABELLE, TORJAEGER, WOCHE = (
@@ -417,9 +419,9 @@ class VereinTool(_FootballTool):
         return (
             "Letzte und nächste Spiele eines bestimmten Vereins oder der Nationalmannschaft: Gegner, Anstoß,"
             " heim oder auswärts, Ergebnis, Ausgang aus Sicht des Vereins (etwa „2:1-Sieg“), Torschützen,"
-            " laufender Stand und Pokalstatus. Ohne Verein"
-            " gilt der Hauptverein („wir“, „mein Verein“). Beispiele: „Hat der Club gestern gewonnen?“,"
-            " „Wann spielt der Club gegen Fürth?“, „Wann spielt Deutschland wieder?“. Nicht für alle Spiele"
+            " laufender Stand (mit Uhrzeit des Abrufs und Vorbehalt) und Pokalstatus. Ohne Verein"
+            " gilt der Hauptverein („wir“, „mein Verein“). Beispiele: „Hat der BVB gestern gewonnen?“,"
+            " „Wann spielt Bayern gegen Dortmund?“, „Wann spielt Deutschland wieder?“. Nicht für alle Spiele"
             " eines Tages (fussball_assist__spiele), Tabellenplätze (fussball_assist__tabelle), Torjäger"
             " (fussball_assist__torjaeger) oder die wichtigsten Spiele der Woche (fussball_assist__woche)."
         )
@@ -545,7 +547,7 @@ class TabelleTool(_FootballTool):
             "Tabelle einer Liga oder der Ligaphase im Europapokal: Platz, Verein, Spiele, Punkte, Tore,"
             " Gegentore, Siege, Unentschieden, Niederlagen und die Zone (Aufstieg, Relegation, Abstieg); mit"
             " Verein dessen Umfeld und fertige Punkteabstände. Keine Prognosen. Beispiele: „Auf welchem Platz"
-            " ist der Club?“, „Wie viele Punkte fehlen dem Club bis zum Aufstiegsplatz?“, „Welche Mannschaft"
+            " ist Schalke?“, „Wie viele Punkte fehlen Hertha bis zum Aufstiegsplatz?“, „Welche Mannschaft"
             " hat die meisten Tore geschossen?“. Für Spiele nimm fussball_assist__verein oder"
             " fussball_assist__spiele, für die Tore einzelner Spieler fussball_assist__torjaeger, für die"
             " wichtigsten Spiele der Woche fussball_assist__woche."

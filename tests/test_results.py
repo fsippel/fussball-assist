@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from custom_components.fussball_assist.models import Phase, Score
+from custom_components.fussball_assist.parse import parse_matches
 from custom_components.fussball_assist.results import (
     ambiguous_payload,
     asked_competition,
@@ -36,7 +37,17 @@ from custom_components.fussball_assist.results import (
 )
 from custom_components.fussball_assist.seasons import COMPETITION_KEYS
 
-from .conftest import BERLIN, SETTINGS_CLUB, assert_speakable, make_index, make_snapshot
+from .conftest import (
+    BERLIN,
+    SETTINGS_CLUB,
+    assert_speakable,
+    fetched_earlier,
+    load_fixture,
+    make_index,
+    make_snapshot,
+)
+
+VORBEHALT = "Der Stand kann ein paar Minuten hinterherhängen; Tore kommen oft erst später in den Daten an."
 
 NOW = datetime(2026, 11, 17, 16, 40, tzinfo=BERLIN)
 
@@ -130,7 +141,8 @@ def test_live_hints_only_for_running_matches():
     finished = next(m for m in snapshot.matches["bundesliga"] if m.finished)
     assert live_hints(snapshot, [(finished, {"zustand": "beendet"}, competition)]) == []
     entry = match_entry(running, snapshot, team=None, competition=competition, same_round=[])
-    assert live_hints(snapshot, [(running, entry, competition)]) == ["Der Stand kann einige Minuten hinterherhängen."]
+    # Der Vorbehalt steht am Spiel (`vorbehalt`), nicht mehr in den Hinweisen.
+    assert entry["vorbehalt"] == VORBEHALT and live_hints(snapshot, [(running, entry, competition)]) == []
     (note,) = live_hints(snapshot, [(running, {"zustand": "laut Daten noch nicht beendet"}, competition)])
     assert "noch nicht beendet" in note
 
@@ -145,6 +157,7 @@ def test_running_match_with_data_from_before_the_kickoff_has_no_score():
     running = dataclasses.replace(_running(snapshot), goals=match.goals[:1])
     entry = match_entry(running, snapshot, team=None, competition=competition, same_round=[])
     assert entry["zustand"] == "läuft" and "ergebnis" not in entry and "tore" not in entry
+    assert "stand_von" not in entry and "vorbehalt" not in entry
     assert match_hints(running, entry) == []
     assert live_hints(snapshot, [(running, entry, competition)]) == [
         "Das Spiel FC Bayern München gegen 1. FC Köln läuft; mein letzter Stand ist von 08:00 Uhr,"
@@ -167,9 +180,38 @@ def test_running_match_gets_a_score_only_from_fresh_data(fetched, known):
     running = _running(snapshot)
     entry = match_entry(running, snapshot, team=None, competition=competition, same_round=[])
     assert ("ergebnis" in entry) is known
+    assert ("stand_von" in entry) is known and ("vorbehalt" in entry) is known
     hints = live_hints(snapshot, [(running, entry, competition)])
-    assert ("Der Stand kann einige Minuten hinterherhängen." in hints) is known
+    assert not any("hinterherhängen" in h for h in hints)
     assert any("keinen Spielstand" in h for h in hints) is not known
+
+
+def _real_live_snapshot():
+    """Echte Aufzeichnung (live_echt): 2. Bundesliga, 12. Spieltag, abgerufen um 13:12:45 Uhr; jetzt 13:14 Uhr."""
+    base = make_snapshot(datetime(2026, 11, 21, 13, 14, tzinfo=BERLIN))
+    live = {m.id: m for m in parse_matches(load_fixture("live_echt"))}
+    matches = {**base.matches, "2_bundesliga": tuple(live.get(m.id, m) for m in base.matches["2_bundesliga"])}
+    snapshot = dataclasses.replace(base, matches=matches)
+    return fetched_earlier(snapshot, datetime(2026, 11, 21, 13, 12, 45, tzinfo=BERLIN))
+
+
+def test_running_match_with_fresh_data_says_when_and_how_reliable_its_score_is():
+    snapshot = _real_live_snapshot()
+    competition = snapshot.season.competitions["2_bundesliga"]
+    by_id = {m.id: m for m in snapshot.matches["2_bundesliga"]}
+    club = match_entry(by_id[83699], snapshot, team=None, competition=competition, same_round=[])  # 1:0, ein Tor
+    assert (club["zustand"], club["ergebnis"]) == ("läuft", "1:0")
+    assert club["stand_von"] == "13:12 Uhr" and club["vorbehalt"] == VORBEHALT
+    keys = list(club)
+    assert keys[keys.index("ergebnis"):][:4] == ["ergebnis", "stand_von", "vorbehalt", "tore"]
+    goalless = match_entry(by_id[83694], snapshot, team=None, competition=competition, same_round=[])  # 0:0
+    assert list(goalless)[-3:] == ["ergebnis", "stand_von", "vorbehalt"]
+    assert live_hints(snapshot, [(by_id[83699], club, competition)]) == []
+    assert_speakable(club)
+    # Beendete und angesetzte Spiele bekommen keines der beiden Felder.
+    entries = [match_entry(m, snapshot, team=None, competition=competition, same_round=[]) for m in by_id.values()]
+    assert {"beendet", "angesetzt", "läuft"} <= {e["zustand"] for e in entries}
+    assert not any("stand_von" in e or "vorbehalt" in e for e in entries if e["zustand"] != "läuft")
 
 
 def test_several_running_matches_without_fresh_data_share_one_sentence():

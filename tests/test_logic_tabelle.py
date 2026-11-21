@@ -337,3 +337,37 @@ def test_single_row_table_has_only_a_leader():
     )
     result = ask(one, verein="Hertha")
     assert places(result) == [1] and result["abstaende"] == ["Tabellenführer"]
+
+
+RUNNING_IN_TABLE = (
+    "Die Tabelle rechnet laufende Spiele mit dem aktuellen Stand ein; bis zum Abpfiff kann sie sich noch ändern."
+)
+SATURDAY_RUNNING = datetime(2026, 11, 21, 13, 40, tzinfo=BERLIN)  # 2. Bundesliga: drei Spiele seit 13:00 Uhr
+
+
+def test_table_with_a_running_match_says_it_counts_the_current_score():
+    assert RUNNING_IN_TABLE in ask(make_snapshot(SATURDAY_RUNNING), wettbewerb="2_bundesliga")["hinweise"]
+    # Dieselbe Liga am Samstag früh (noch kein Anstoß): kein Satz.
+    before = make_snapshot(datetime(2026, 11, 21, 8, 0, tzinfo=BERLIN))
+    assert RUNNING_IN_TABLE not in ask(before, wettbewerb="2_bundesliga")["hinweise"]
+    # In der Bundesliga läuft zur selben Zeit kein Spiel (Anstoß dort erst um 15:30 Uhr): kein Satz.
+    assert RUNNING_IN_TABLE not in ask(make_snapshot(SATURDAY_RUNNING), wettbewerb="bundesliga")["hinweise"]
+
+
+def test_table_fetched_before_the_kickoff_of_the_running_match_does_not_include_it():
+    # Die Spiele laufen seit 13:00 Uhr; die Tabelle ist von 12:59 Uhr, also noch ohne sie.
+    snapshot = make_snapshot(SATURDAY_RUNNING)
+    early = dataclasses.replace(
+        snapshot, tables_at={**snapshot.tables_at, "2_bundesliga": datetime(2026, 11, 21, 12, 59, tzinfo=BERLIN)}
+    )
+    assert RUNNING_IN_TABLE not in ask(early, wettbewerb="2_bundesliga")["hinweise"]
+    # Eine Minute nach dem Anstoß abgerufen: Sie rechnet die laufenden Spiele ein.
+    late = dataclasses.replace(
+        snapshot, tables_at={**snapshot.tables_at, "2_bundesliga": datetime(2026, 11, 21, 13, 1, tzinfo=BERLIN)}
+    )
+    assert RUNNING_IN_TABLE in ask(late, wettbewerb="2_bundesliga")["hinweise"]
+    # Ohne Abrufzeit der Tabelle: kein Satz.
+    unknown = dataclasses.replace(
+        snapshot, tables_at={k: v for k, v in snapshot.tables_at.items() if k != "2_bundesliga"}
+    )
+    assert RUNNING_IN_TABLE not in ask(unknown, wettbewerb="2_bundesliga")["hinweise"]

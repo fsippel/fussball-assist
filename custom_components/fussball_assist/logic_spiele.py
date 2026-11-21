@@ -28,6 +28,7 @@ from .results import (
     round_text,
     same_round_matches,
     season_hints,
+    shown_stand,
     stand_phrase,
     unique,
 )
@@ -133,7 +134,8 @@ def answer(
     Wettbewerb und kommen aus den Spieldaten. Der Vereinsindex (`index`, sonst aus der Momentaufnahme
     gebaut) liefert alle Kennungen der Lieblingsvereine. Ohne Spiele nennt das Ergebnis den nächsten Tag
     mit Spielen und, wenn eine Länderspielpause dazwischenliegt, diese als `grund`; beides nur, wenn
-    alle gefragten Wettbewerbe vollständig geladen sind, sonst steht ein Hinweis.
+    alle gefragten Wettbewerbe vollständig geladen sind, sonst steht ein Hinweis. `stand` richtet sich nach den
+    Wettbewerben der gezeigten Spiele, ohne gezeigtes Spiel nach allen geladenen gefragten.
     """
     period = _check_period(zeitraum)
     day = _check_day(datum)
@@ -269,7 +271,7 @@ def answer(
 
     result: dict[str, Any] = {
         "zeitraum": label,
-        "stand": stand_phrase(snapshot, loaded),
+        "stand": shown_stand(snapshot, loaded, (competition.key for competition, _ in groups)),
         "wettbewerbe": grouped,
         "gekuerzt": bool(dropped) or removed or times_dropped,
     }

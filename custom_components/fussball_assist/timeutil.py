@@ -68,21 +68,27 @@ def _unit(count: int, singular: str, plural: str) -> str:
     return f"in {count} {singular if count == 1 else plural}"
 
 
-def countdown_phrase(moment: datetime, now: datetime) -> str:
-    """Restzeit bis zum Zeitpunkt, abgerundet auf Tage, Stunden oder Minuten.
+def _rounded(seconds: int, unit: int) -> int:
+    """Ganze Einheiten, auf die nächste gerundet; genau die Hälfte wird abgerundet."""
+    return (seconds + unit // 2 - 1) // unit
 
-    Liegt der Zeitpunkt in der Vergangenheit oder weniger als eine Minute voraus,
-    lautet die Antwort "jetzt".
+
+def countdown_phrase(moment: datetime, now: datetime) -> str:
+    """Restzeit bis zum Zeitpunkt in Minuten, Stunden oder Tagen, auf die nächste ganze Einheit gerundet.
+
+    Genau die Hälfte wird abgerundet (1 Stunde 30 Minuten: "in 1 Stunde"). Die Einheit ergibt sich aus dem
+    gerundeten Wert: 59 Minuten 40 Sekunden sind "in 1 Stunde", 23 Stunden 40 Minuten "in 1 Tag". Liegt der
+    Zeitpunkt in der Vergangenheit oder weniger als eine Minute voraus, lautet die Antwort "jetzt".
     """
     # Nach UTC normalisieren: gleiche tzinfo-Objekte würden sonst Wandzeit subtrahieren.
     seconds = int((moment.astimezone(UTC) - now.astimezone(UTC)).total_seconds())
     if seconds < 60:
         return "jetzt"
-    if seconds < 3600:
-        return _unit(seconds // 60, "Minute", "Minuten")
-    if seconds < 86400:
-        return _unit(seconds // 3600, "Stunde", "Stunden")
-    return _unit(seconds // 86400, "Tag", "Tagen")
+    if (minutes := _rounded(seconds, 60)) < 60:
+        return _unit(minutes, "Minute", "Minuten")
+    if (hours := _rounded(seconds, 3600)) < 24:
+        return _unit(hours, "Stunde", "Stunden")
+    return _unit(_rounded(seconds, 86400), "Tag", "Tagen")
 
 
 def resolve_period(period: str, now: datetime, tz: tzinfo) -> tuple[date, date]:
