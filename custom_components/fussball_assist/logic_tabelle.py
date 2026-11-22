@@ -44,6 +44,8 @@ RUNNING_COUNTED = (
     "Die Tabelle rechnet laufende Spiele mit dem aktuellen Stand ein; bis zum Abpfiff kann sie sich noch ändern."
 )
 
+PLAYING_NOW = "{name} spielt gerade; den Spielstand liefert fussball_assist__verein."
+
 
 def _check_section(value: Any) -> str:
     text = given(value)
@@ -294,6 +296,8 @@ def answer(
         hints.append(ZONES_EXPLAINED)
     if _counts_running_match(snapshot, key):
         hints.append(RUNNING_COUNTED)
+    if club is not None and _plays_now(snapshot, key, ids):
+        hints.append(PLAYING_NOW.format(name=result["verein"]))
     hints += table_stale_hints(snapshot, [key])
     hints += season_hints(snapshot, [key])
     result["hinweise"] = unique(hints)
@@ -312,6 +316,22 @@ def _counts_running_match(snapshot: Snapshot, key: str) -> bool:
     stamp = stamp.astimezone(UTC)
     matches = snapshot.matches.get(key, ())
     return any(match_state(m, snapshot.now) == LIVE and m.kickoff.astimezone(UTC) < stamp for m in matches)
+
+
+def _plays_now(snapshot: Snapshot, key: str, ids: frozenset[int]) -> bool:
+    """Spielt der Verein gerade, und sind die Spieldaten des Wettbewerbs nach dem Anstoß abgerufen?
+
+    Ohne Abruf nach dem Anstoß weiß das Werkzeug nicht, ob das Spiel wirklich läuft (wie bei `_counts_running_match`,
+    nur mit den Spieldaten statt der Tabelle); ohne Abrufzeit gilt das als nicht sicher.
+    """
+    stamp = snapshot.fetched_at.get(key)
+    if stamp is None:
+        return False
+    stamp = stamp.astimezone(UTC)
+    return any(
+        match_state(m, snapshot.now) == LIVE and m.kickoff.astimezone(UTC) < stamp and {m.home.id, m.away.id} & ids
+        for m in snapshot.matches.get(key, ())
+    )
 
 
 def _in_no_league(team: Team, foreign: bool) -> ToolError:

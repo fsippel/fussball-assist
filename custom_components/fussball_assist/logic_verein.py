@@ -281,6 +281,11 @@ def answer(
         hints += _elsewhere_hints(snapshot, subject, ids, usable, searchable)
     hints += season_hints(snapshot, usable, upcoming=direction != "letzte")
     hints += loading_hints(snapshot, relevant)
+    if text is None:  # ohne Vereinsangabe: der Hauptverein (Rückfrage und Fehler sind oben schon zurückgekehrt)
+        hints.append(
+            f"Ohne Vereinsangabe gilt der Hauptverein {subject.name}. "
+            "Für einen anderen Verein frag mit dessen Namen im Feld verein."
+        )
     # Der Hinweis auf Auslandsvereine stimmt erst, wenn jeder inländische Wettbewerb, in dem ein Verein vorkommen
     # kann, brauchbar geladen ist; ein eingeengter `wettbewerb` ändert daran nichts.
     domestic = [k for k in searchable if competitions[k].kind is not Kind.EUROPE]

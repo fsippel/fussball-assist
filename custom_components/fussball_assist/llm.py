@@ -548,7 +548,8 @@ class TabelleTool(_FootballTool):
             " Gegentore, Siege, Unentschieden, Niederlagen und die Zone (Aufstieg, Relegation, Abstieg); mit"
             " Verein dessen Umfeld und fertige Punkteabstände. Keine Prognosen. Beispiele: „Auf welchem Platz"
             " ist Schalke?“, „Wie viele Punkte fehlen Hertha bis zum Aufstiegsplatz?“, „Welche Mannschaft"
-            " hat die meisten Tore geschossen?“. Für Spiele nimm fussball_assist__verein oder"
+            " hat die meisten Tore geschossen?“. Nicht für den Spielstand eines laufenden Spiels („Wie steht's"
+            " gerade bei …?“); dafür fussball_assist__verein. Für Spiele nimm fussball_assist__verein oder"
             " fussball_assist__spiele, für die Tore einzelner Spieler fussball_assist__torjaeger, für die"
             " wichtigsten Spiele der Woche fussball_assist__woche."
         )

@@ -1,5 +1,6 @@
 """Ergebnisbausteine: Fehler, Rückfragen, Stand, Hinweise und Spieleinträge."""
 
+import copy
 import dataclasses
 from datetime import date, datetime, timedelta
 
@@ -13,6 +14,7 @@ from custom_components.fussball_assist.results import (
     available,
     default_league,
     ErrorKind,
+    SCORERS_MISSING,
     ToolError,
     error_payload,
     favorite_ids,
@@ -494,3 +496,42 @@ def test_round_matches_from_a_day_only_counts_matches_from_it():
     chosen, note = round_matches(snapshot, "bundesliga", "naechster_spieltag", from_day=date(2026, 11, 20))
     assert len(chosen) == 9 and note == ""
     assert round_matches(snapshot, "bundesliga", "naechster_spieltag", from_day=date(2030, 1, 1)) == ([], "")
+
+
+def _snapshot_with_new_goal_in_the_list(scorer):
+    """83699 aus live_echt, dazu vorn in `goals` ein Tor zum 2:0 ohne Minute; "Endergebnis" bleibt bei 1:0.
+
+    Beobachtet am 21. und 22.11.2026: Das neue Tor steht eine Minute vor dem Ergebnisfeld in der Torliste.
+    """
+    raw = copy.deepcopy(load_fixture("live_echt"))
+    raw_match = next(m for m in raw if m["matchID"] == 83699)
+    raw_match["goals"].insert(0, {
+        "goalID": 153626, "scoreTeam1": 2, "scoreTeam2": 0, "matchMinute": None,
+        "goalGetterID": 18452 if scorer else 0, "goalGetterName": scorer or "", "scoringTeamId": 79,
+        "isPenalty": False, "isOwnGoal": False, "isOvertime": False, "comment": None,
+    })
+    base = make_snapshot(datetime(2026, 11, 21, 13, 14, tzinfo=BERLIN))
+    live = {m.id: m for m in parse_matches(raw)}
+    matches = {**base.matches, "2_bundesliga": tuple(live.get(m.id, m) for m in base.matches["2_bundesliga"])}
+    snapshot = dataclasses.replace(base, matches=matches)
+    snapshot = fetched_earlier(snapshot, datetime(2026, 11, 21, 13, 12, 45, tzinfo=BERLIN))
+    return snapshot, live[83699]
+
+
+def test_goal_list_ahead_of_the_result_field_gives_the_newer_score():
+    snapshot, match = _snapshot_with_new_goal_in_the_list(None)
+    assert match.final is None and not match.result_unclear
+    assert max((g.home, g.away) for g in match.goals) == (2, 0)
+    competition = snapshot.season.competitions["2_bundesliga"]
+    entry = match_entry(match, snapshot, team=None, competition=competition, same_round=[])
+    assert entry["ergebnis"] == "2:0" and entry["stand_von"] and entry["vorbehalt"] == VORBEHALT
+    assert "tore" not in entry  # ohne Schützen
+    assert SCORERS_MISSING in match_hints(match, entry)
+
+
+def test_goal_list_ahead_of_the_result_field_lists_goals_with_and_without_minute():
+    snapshot, match = _snapshot_with_new_goal_in_the_list("A. Neu")
+    competition = snapshot.season.competitions["2_bundesliga"]
+    entry = match_entry(match, snapshot, team=None, competition=competition, same_round=[])
+    assert entry["ergebnis"] == "2:0"
+    assert entry["tore"] == ["10. Minute: J. Justvan (1. FC Nürnberg)", "A. Neu (1. FC Nürnberg)"]

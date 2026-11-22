@@ -351,3 +351,8 @@ async def test_tool_descriptions_use_neutral_examples(hass, config_entry, llm_co
     for name in ("verein", "tabelle"):
         description = tools[name].description
         assert "Club" not in description and "Fürth" not in description, name
+
+
+async def test_table_tool_description_excludes_the_live_score(hass, config_entry, llm_context):
+    _, tools = await _our_tools(hass, llm_context)
+    assert "Nicht für den Spielstand eines laufenden Spiels" in tools["tabelle"].description

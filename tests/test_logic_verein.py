@@ -25,6 +25,11 @@ from .conftest import (
 NOW = datetime(2026, 11, 17, 16, 40, tzinfo=BERLIN)
 
 
+MAIN_TEAM_NOTE = (
+    "Ohne Vereinsangabe gilt der Hauptverein 1. FC Nürnberg. Für einen anderen Verein frag mit dessen Namen im Feld verein."
+)
+
+
 def ask(snapshot=None, settings=SETTINGS_CLUB, index_from=None, **kwargs):
     """Fragt mit den Vorgaben des Werkzeugs; jedes Ergebnis muss vorlesbar sein.
 
@@ -143,7 +148,10 @@ def test_cup_lost_and_nothing_scheduled_means_out():
     # Der Club verlor die 2. Runde 2:5 in Leverkusen; das Achtelfinale ist ohne ihn angesetzt.
     result = ask(wettbewerb="dfb_pokal", richtung="naechste")
     assert result["naechste"] == []
-    assert result["hinweise"] == ["1. FC Nürnberg ist im DFB-Pokal ausgeschieden."]
+    assert result["hinweise"] == [
+        "1. FC Nürnberg ist im DFB-Pokal ausgeschieden.",
+        MAIN_TEAM_NOTE,
+    ]
 
 
 def test_cup_lost_on_penalties_is_out_too():
@@ -249,7 +257,11 @@ def test_won_european_match_that_is_no_final_stays_uncertain():
 def test_club_without_any_match_in_the_competition_does_not_play_there():
     result = ask(wettbewerb="champions_league")
     assert result["letzte"] == [] and result["naechste"] == []
-    assert result["hinweise"] == ["1. FC Nürnberg spielt in dieser Saison nicht in der Champions League.", ELSEWHERE]
+    assert result["hinweise"] == [
+        "1. FC Nürnberg spielt in dieser Saison nicht in der Champions League.",
+        ELSEWHERE,
+        MAIN_TEAM_NOTE,
+    ]
     result = ask(verein="Darmstadt", wettbewerb="DFB-Pokal", richtung="letzte")
     assert result["letzte"] != []  # Darmstadt spielt im Pokal: kein solcher Satz
     assert not hints(result, "spielt in dieser Saison nicht")
@@ -306,6 +318,7 @@ def test_empty_cup_list_says_no_match_yet_instead_of_not_taking_part(key, name, 
         f"Für 1. FC Nürnberg ist {name} noch kein Spiel gespielt.",
         f"Für 1. FC Nürnberg ist {name} noch kein Spiel angesetzt.",
         elsewhere,
+        MAIN_TEAM_NOTE,
     ]
 
 
@@ -316,6 +329,7 @@ def test_cup_list_with_only_scheduled_matches_says_no_match_yet():
     assert result["hinweise"] == [
         "Für 1. FC Nürnberg ist in der Champions League noch kein Spiel angesetzt.",
         ELSEWHERE,
+        MAIN_TEAM_NOTE,
     ]
 
 
@@ -329,6 +343,7 @@ def test_european_cup_with_a_club_entering_after_the_first_round_says_no_match_y
     assert result["hinweise"] == [
         "Für 1. FC Nürnberg ist in der Champions League noch kein Spiel angesetzt.",
         ELSEWHERE,
+        MAIN_TEAM_NOTE,
     ]
 
 
@@ -745,4 +760,16 @@ def test_loaded_but_invalid_competition_is_not_reported_as_no_match():
 def test_no_match_against_an_opponent_names_the_resolved_club():
     result = ask(gegner="Köln", richtung="letzte")
     assert result["letzte"] == []
-    assert result["hinweise"] == ["Gegen 1. FC Köln ist in dieser Saison kein Spiel gespielt."]
+    assert result["hinweise"] == ["Gegen 1. FC Köln ist in dieser Saison kein Spiel gespielt.", MAIN_TEAM_NOTE]
+
+
+def test_main_team_note_only_without_a_club_given():
+    assert MAIN_TEAM_NOTE in ask()["hinweise"]
+    assert MAIN_TEAM_NOTE in ask(verein="")["hinweise"]
+    for name in ("Club", "Nürnberg", "Hertha"):
+        assert not [h for h in ask(verein=name)["hinweise"] if "Ohne Vereinsangabe" in h], name
+
+
+def test_main_team_note_not_for_a_question_or_an_error():
+    result = ask(settings=Settings(COMPETITION_KEYS, None, ()))
+    assert "hinweise" not in result

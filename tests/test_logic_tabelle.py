@@ -10,7 +10,7 @@ from custom_components.fussball_assist.logic_tabelle import answer
 from custom_components.fussball_assist.results import ErrorKind, Settings, ToolError
 from custom_components.fussball_assist.seasons import COMPETITION_KEYS, Zone
 
-from .conftest import BERLIN, SETTINGS_CLUB, assert_speakable, make_index, make_snapshot
+from .conftest import BERLIN, SETTINGS_CLUB, assert_speakable, fetched_earlier, make_index, make_snapshot
 
 NOW = datetime(2026, 11, 17, 16, 40, tzinfo=BERLIN)  # Dienstag
 ENDSTAND = "Endstand der Saison 2026/27 in 2. Bundesliga."
@@ -371,3 +371,36 @@ def test_table_fetched_before_the_kickoff_of_the_running_match_does_not_include_
         snapshot, tables_at={k: v for k, v in snapshot.tables_at.items() if k != "2_bundesliga"}
     )
     assert RUNNING_IN_TABLE not in ask(unknown, wettbewerb="2_bundesliga")["hinweise"]
+
+
+def _playing(name):
+    return f"{name} spielt gerade; den Spielstand liefert fussball_assist__verein."
+
+
+def test_club_with_a_running_match_points_to_the_club_tool():
+    snapshot = make_snapshot(SATURDAY_RUNNING)  # Nürnberg spielt seit 13:00 Uhr, die Spieldaten sind von 13:40 Uhr
+    assert _playing("1. FC Nürnberg") in ask(snapshot, verein="Nürnberg")["hinweise"]
+    # Ohne Angabe gilt kein Verein hervorgehoben; auch ohne Hauptverein-Bezug kein Satz.
+    assert not [h for h in ask(snapshot, wettbewerb="2_bundesliga")["hinweise"] if "spielt gerade" in h]
+    # Die Tabelle bleibt unverändert dabei.
+    assert RUNNING_IN_TABLE in ask(snapshot, verein="Nürnberg")["hinweise"]
+
+
+def test_running_match_note_needs_match_data_from_after_the_kickoff():
+    snapshot = fetched_earlier(make_snapshot(SATURDAY_RUNNING), datetime(2026, 11, 21, 12, 59, tzinfo=BERLIN))
+    assert _playing("1. FC Nürnberg") not in ask(snapshot, verein="Nürnberg")["hinweise"]
+    late = fetched_earlier(make_snapshot(SATURDAY_RUNNING), datetime(2026, 11, 21, 13, 1, tzinfo=BERLIN))
+    assert _playing("1. FC Nürnberg") in ask(late, verein="Nürnberg")["hinweise"]
+    unknown = make_snapshot(SATURDAY_RUNNING)
+    unknown = dataclasses.replace(
+        unknown, fetched_at=MappingProxyType({k: v for k, v in unknown.fetched_at.items() if k != "2_bundesliga"})
+    )
+    assert _playing("1. FC Nürnberg") not in ask(unknown, verein="Nürnberg")["hinweise"]
+
+
+def test_running_match_note_only_for_the_club_that_plays():
+    snapshot = make_snapshot(SATURDAY_RUNNING)  # Hertha spielt nicht, andere Vereine der Liga schon
+    assert not [h for h in ask(snapshot, verein="Hertha")["hinweise"] if "spielt gerade" in h]
+    # Vor dem Anstoß: auch für Nürnberg kein Satz.
+    before = make_snapshot(datetime(2026, 11, 21, 8, 0, tzinfo=BERLIN))
+    assert not [h for h in ask(before, verein="Nürnberg")["hinweise"] if "spielt gerade" in h]
