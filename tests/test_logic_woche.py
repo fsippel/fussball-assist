@@ -114,19 +114,64 @@ def test_favourite_team_comes_first():
     first = result["spiele"][0]
     assert (first["heim"], first["gast"]) == ("1. FC Nürnberg", "Eintracht Braunschweig")
     assert first["wann"] == "Samstag, 21. November, 13:00 Uhr"
-    assert first["wettbewerb"] == "2. Bundesliga" and first["grund"] == "Dein Verein spielt"
+    assert first["wettbewerb"] == "2. Bundesliga" and first["grund"] == "Dein Verein 1. FC Nürnberg spielt"
     # Fürth (Lieblingsverein) spielt zur selben Zeit; der Hauptverein steht bei gleichem Anstoß vorn.
     assert pairs(result) == [
         ("1. FC Nürnberg", "Eintracht Braunschweig"),
         ("Hannover 96", "SpVgg Greuther Fürth"),
         ("SV Werder Bremen", "Hamburger SV"),
     ]
-    assert reasons(result) == ["Dein Verein spielt", "Dein Verein spielt", "Derby: Nordderby"]
+    assert reasons(result) == [
+        "Dein Verein 1. FC Nürnberg spielt",
+        "Dein Lieblingsverein SpVgg Greuther Fürth spielt",
+        "Derby: Nordderby",
+    ]
+
+
+def test_own_team_away_names_the_main_team_not_the_home_team():
+    result = ask(woche="naechste")
+    first = result["spiele"][0]
+    assert (first["heim"], first["gast"]) == ("1. FC Heidenheim 1846", "1. FC Nürnberg")
+    assert first["grund"] == "Dein Verein 1. FC Nürnberg spielt"
+    assert "Heidenheim" not in first["grund"]
+
+
+def test_main_team_against_favourite_names_the_main_team_first_in_both_directions():
+    snapshot = make_snapshot(datetime(2027, 1, 26, 12, 0, tzinfo=BERLIN))  # Nürnberg gegen Fürth (Spiel 83874)
+    expected = "Dein Verein 1. FC Nürnberg spielt gegen deinen Lieblingsverein SpVgg Greuther Fürth"
+    assert reasons(ask(snapshot, SETTINGS_CLUB)) == [expected]
+    swapped = ask(snapshot, Settings(competitions=COMPETITION_KEYS, main_team=115, favorite_teams=(79,)))
+    assert reasons(swapped) == ["Dein Verein SpVgg Greuther Fürth spielt gegen deinen Lieblingsverein 1. FC Nürnberg"]
+    # Die Mannschaften wechseln die Plätze, der Hauptverein bleibt zuerst.
+    away = replace_match(
+        snapshot,
+        "2_bundesliga",
+        83874,
+        home=Team(115, "SpVgg Greuther Fürth", "Fürth", None),
+        away=Team(79, "1. FC Nürnberg", "Nürnberg", None),
+    )
+    assert reasons(ask(away, SETTINGS_CLUB)) == [expected]
+
+
+def test_two_favourites_against_each_other_are_named_home_first():
+    snapshot = make_snapshot(datetime(2027, 1, 26, 12, 0, tzinfo=BERLIN))
+    settings = Settings(competitions=COMPETITION_KEYS, main_team=None, favorite_teams=(79, 115))
+    result = ask(snapshot, settings)
+    assert pairs(result) == [("1. FC Nürnberg", "SpVgg Greuther Fürth")]
+    assert reasons(result) == ["Deine Lieblingsvereine 1. FC Nürnberg und SpVgg Greuther Fürth spielen gegeneinander"]
+
+
+def test_only_a_favourite_without_main_team_is_called_a_favourite():
+    settings = Settings(competitions=COMPETITION_KEYS, main_team=None, favorite_teams=(115,))
+    result = ask(settings=settings)
+    assert ("Hannover 96", "SpVgg Greuther Fürth") in pairs(result)
+    assert reasons(result)[:1] == ["Dein Lieblingsverein SpVgg Greuther Fürth spielt"]
+    assert "Dein Verein" not in " ".join(reasons(result))
 
 
 def test_no_favourite_team():
     result = ask(settings=NO_CLUBS)
-    assert "Dein Verein spielt" not in reasons(result)
+    assert not [g for g in reasons(result) if g.startswith("Dein")]
     assert pairs(result) == [("SV Werder Bremen", "Hamburger SV")]  # nur das Derby bleibt
 
 
@@ -142,7 +187,11 @@ def test_at_most_five_matches():
     derbies = tuple((m.home.id, m.away.id, "Testderby") for m in snapshot.matches["bundesliga"])
     result = ask(snapshot, derbies=derbies)
     assert len(result["spiele"]) == MAX_MATCHES == 5
-    assert reasons(result) == ["Dein Verein spielt"] * 2 + ["Derby: Testderby"] * 3
+    assert reasons(result) == [
+        "Dein Verein 1. FC Nürnberg spielt",
+        "Dein Lieblingsverein SpVgg Greuther Fürth spielt",
+        *["Derby: Testderby"] * 3,
+    ]
     # innerhalb einer Regel nach Anstoß: Freitag 20:30, dann Samstag 15:30 (die drei frühesten Kennungen)
     assert [g["wann"] for g in result["spiele"][2:]] == [
         "Freitag, 20. November, 20:30 Uhr",
@@ -161,7 +210,7 @@ def test_rule_order_then_kickoff():
     result = ask(snapshot, settings)
     # Der Anstoß der Spitzenspiels (Donnerstag) liegt vor dem des K.-o.-Spiels (Freitag): die Regel entscheidet.
     assert reasons(result) == [
-        "Dein Verein spielt",
+        "Dein Verein 1. FC Nürnberg spielt",
         "Länderspiel",
         "K.-o.-Spiel in der Champions League",
         "Spitzenspiel: Platz 2 gegen Platz 3",
@@ -182,7 +231,7 @@ def test_a_match_for_several_rules_appears_once_with_the_first_reason():
     settings = Settings(competitions=COMPETITION_KEYS, main_team=134, favorite_teams=())
     result = ask(snapshot, settings)
     nord = [g for g in result["spiele"] if g["heim"] == "SV Werder Bremen"]
-    assert [g["grund"] for g in nord] == ["Dein Verein spielt"]
+    assert [g["grund"] for g in nord] == ["Dein Verein SV Werder Bremen spielt"]
     # Pokalspiel zwischen Platz 1 und Platz 2 der Bundesliga, K.-o. mit deutschem Verein: Regel 3 vor Regel 4.
     cup = moved(snapshot, "dfb_pokal", 88752, at(18, 20, 45), home=BAYERN, away=DORTMUND)
     result = ask(cup, NO_CLUBS, derbies=())
@@ -264,7 +313,9 @@ def test_derby_from_the_list():
     assert reasons(result) == ["Derby: Frankenderby"]
     assert result["zeitraum"] == "Dienstag, 26. Januar bis Sonntag, 31. Januar"
     again = ask(snapshot, SETTINGS_CLUB)
-    assert pairs(again) == [("1. FC Nürnberg", "SpVgg Greuther Fürth")] and reasons(again) == ["Dein Verein spielt"]
+    assert pairs(again) == [("1. FC Nürnberg", "SpVgg Greuther Fürth")] and reasons(again) == [
+        "Dein Verein 1. FC Nürnberg spielt gegen deinen Lieblingsverein SpVgg Greuther Fürth"
+    ]
     # Auch in umgekehrter Reihenfolge der Kennungen.
     assert reasons(ask(snapshot, NO_CLUBS, derbies=((115, 79, "Frankenderby"),))) == ["Derby: Frankenderby"]
 
@@ -295,7 +346,7 @@ def test_next_week():
     assert result["zeitraum"] == "Montag, 23. November bis Sonntag, 29. November"
     assert result["spiele"]
     assert all(g["wann"].split(",")[1].strip().split(".")[0] in {str(d) for d in range(23, 30)} for g in result["spiele"])
-    assert reasons(result)[0] == "Dein Verein spielt"
+    assert reasons(result)[0] == "Dein Verein 1. FC Nürnberg spielt"
     assert (result["spiele"][0]["heim"], result["spiele"][0]["gast"]) == ("1. FC Heidenheim 1846", "1. FC Nürnberg")
     # Am Sonntag selbst beginnt die nächste Woche am folgenden Montag.
     sunday = make_snapshot(datetime(2026, 11, 22, 10, 0, tzinfo=BERLIN))

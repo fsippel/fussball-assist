@@ -3,7 +3,9 @@
 Die Regeln gelten in dieser Reihenfolge; ein Spiel steht mit dem Grund der ersten passenden Regel einmal in der
 Antwort:
 
-1. "Dein Verein spielt": Haupt- oder Lieblingsverein.
+1. "Dein Verein <Name> spielt": der Hauptverein; "Dein Lieblingsverein <Name> spielt": ein Lieblingsverein;
+   beide im selben Spiel: "Dein Verein <Name> spielt gegen deinen Lieblingsverein <Name>" bzw. "Deine
+   Lieblingsvereine <Name> und <Name> spielen gegeneinander". Der Name steht im Grund, damit klar ist, wer gemeint ist.
 2. "Länderspiel": Spiel der Nationalmannschaft.
 3. "K.-o.-Spiel im <Pokal>" oder "K.-o.-Spiel in der <Europapokal-Wettbewerb>": Pokal oder Europapokal nach der
    Ligaphase, mit mindestens einem Verein aus den gewählten Männerligen.
@@ -61,7 +63,10 @@ TOP_PLACES = 4  # ein Spitzenspiel: beide unter den ersten vier
 WEEKS = ("diese", "naechste")
 _SUNDAY = 6
 
-OWN_TEAM = "Dein Verein spielt"
+OWN_MAIN = "Dein Verein {} spielt"
+OWN_FAVORITE = "Dein Lieblingsverein {} spielt"
+OWN_MAIN_VS_FAVORITE = "Dein Verein {} spielt gegen deinen Lieblingsverein {}"
+OWN_FAVORITES = "Deine Lieblingsvereine {} und {} spielen gegeneinander"
 INTERNATIONAL = "Länderspiel"
 KNOCKOUT_CUP = "K.-o.-Spiel im {}"
 KNOCKOUT_EUROPE = "K.-o.-Spiel in der {}"
@@ -191,12 +196,26 @@ def answer(
     )
     known = tuple(derbies)
 
+    def _own_reason(match: Match, home: frozenset[int], away: frozenset[int]) -> str:
+        """Der Grund der Regel 1: nennt den eigenen Verein; "Dein Verein" nur für den Hauptverein."""
+        names = (match.home.name.strip(), match.away.name.strip())
+        mains = (bool(home & main), bool(away & main))
+        liked = (bool(home & favorites), bool(away & favorites))
+        if all(liked):  # beide Vereine sind Haupt- oder Lieblingsverein
+            if mains[1] and not mains[0]:
+                return OWN_MAIN_VS_FAVORITE.format(names[1], names[0])
+            if mains[0] and not mains[1]:
+                return OWN_MAIN_VS_FAVORITE.format(names[0], names[1])
+            return OWN_FAVORITES.format(*names)
+        name = names[0] if liked[0] else names[1]
+        return (OWN_MAIN if mains[0 if liked[0] else 1] else OWN_FAVORITE).format(name)
+
     def reason(key: str, match: Match) -> tuple[int, str, str | None] | None:
         """Nummer der ersten passenden Regel, ihr Grund und bei Spitzenspielen die Liga der Tabelle."""
         competition = competitions[key]
         home, away = _ids(index, match.home), _ids(index, match.away)
         if (home | away) & favorites:
-            return 1, OWN_TEAM, None
+            return 1, _own_reason(match, home, away), None
         if competition.kind is Kind.NATIONAL:
             return 2, INTERNATIONAL, None
         knockout = competition.kind is Kind.CUP or (
