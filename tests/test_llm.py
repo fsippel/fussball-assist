@@ -122,7 +122,8 @@ async def test_schemas_survive_the_conversion_of_the_agents(hass, config_entry, 
     ("spiele", "zeitraum", ("heute", "kommendes_wochenende", "naechster_spieltag", "Vorgabe: heute")),
     ("spiele", "datum", ("JJJJ-MM-TT",)),
     ("tabelle", "ausschnitt", ("spitze", "ende", "ganz", "Vorgabe: spitze", "Offensive", "Abwehr")),
-    ("tabelle", "wettbewerb", ("Liga des Hauptvereins",)),
+    ("tabelle", "wettbewerb", ("Liga des Hauptvereins", "nicht raten")),
+    ("tabelle", "verein", ("immer angeben",)),
     ("torjaeger", "anzahl", ("1 bis 10", "Vorgabe: 5")),
     ("woche", "woche", ("diese", "naechste", "Vorgabe: diese")),
 ])
@@ -277,6 +278,7 @@ _LEAGUES_WITH_TABLE = ("bundesliga", "2_bundesliga", "3_liga", "frauen_bundeslig
     ("spiele", {}, []),
     ("tabelle", {}, [{"tables": ("2_bundesliga",)}]),  # die Liga des Hauptvereins
     ("tabelle", {"verein": "Bayern"}, [{"tables": ("bundesliga",)}]),
+    ("tabelle", {"verein": "Hertha", "wettbewerb": "bundesliga"}, [{"tables": ("2_bundesliga",)}]),
     ("tabelle", {"wettbewerb": "champions_league"}, [{"tables": ("champions_league",)}]),
     ("torjaeger", {"wettbewerb": "bundesliga"}, [{"scorers": ("bundesliga",)}]),  # nur diese eine Liste
     ("torjaeger", {}, [{"scorers": ("2_bundesliga",)}]),

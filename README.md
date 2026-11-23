@@ -71,7 +71,7 @@ Jede Saison braucht eine eigene Datei mit der Zuordnung der Wettbewerbe. Enthalt
 - „Welche Spiele gibt es am Wochenende?“
 - „Warum ist dieses Wochenende keine Bundesliga?“
 
-**Tabelle** (`fussball_assist__tabelle`): Tabelle einer Liga oder der Ligaphase im Europapokal; zu einem Verein dessen Umfeld und fertig berechnete Punkteabstände. Für den DFB-Pokal und die Nationalmannschaft gibt es keine Tabelle.
+**Tabelle** (`fussball_assist__tabelle`): Tabelle einer Liga oder der Ligaphase im Europapokal; zu einem Verein dessen Umfeld und fertig berechnete Punkteabstände. Für den DFB-Pokal und die Nationalmannschaft gibt es keine Tabelle. Wird ein Verein mit einer Liga genannt, in der er nicht spielt, zeigt das Werkzeug die Tabelle seiner Liga und sagt das dazu.
 
 - „Auf welchem Platz steht Dortmund?“
 - „Wie viele Punkte liegt Bayern vor dem Zweiten?“

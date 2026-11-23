@@ -13,6 +13,7 @@ from .results import (
     ToolError,
     ambiguous_payload,
     asked_competition,
+    available,
     default_league,
     given,
     in_table,
@@ -45,6 +46,7 @@ RUNNING_COUNTED = (
 )
 
 PLAYING_NOW = "{name} spielt gerade; den Spielstand liefert fussball_assist__verein."
+OTHER_LEAGUE = "{team} spielt nicht in der {asked}, sondern in der {league}; das ist die Tabelle der {league}."
 
 
 def _check_section(value: Any) -> str:
@@ -178,7 +180,11 @@ def _section(rows: Sequence[TableRow], section: str, club: TableRow | None) -> l
 def _choose(
     snapshot: Snapshot, index: TeamIndex, settings: Settings, wettbewerb: Any, verein: Any
 ) -> tuple[str, Team | None, frozenset[int], list[str]] | dict[str, Any]:
-    """Wettbewerb, Verein, dessen Kennungen und Hinweise zur Wahl der Liga, oder eine Rückfrage. Wirft nur `ToolError`."""
+    """Wettbewerb, Verein, dessen Kennungen und Hinweise zur Wahl der Liga, oder eine Rückfrage. Wirft nur `ToolError`.
+
+    Ist eine Liga genannt, in deren Spielliste der Verein sicher nicht steht, gilt die Liga des Vereins (siehe
+    `_league_instead`); der erste Hinweis sagt das.
+    """
     competitions = snapshot.season.competitions
     asked = given(wettbewerb)
     key = asked_competition(snapshot, settings, asked, lambda c: c.has_table) if asked is not None else None
@@ -212,9 +218,33 @@ def _choose(
             key = league_of(snapshot, settings, ids, f"die Liga von „{team.name}“")
             if key is None:
                 raise _in_no_league(team, resolution.foreign)
+        elif (league := _league_instead(snapshot, settings, key, ids)) is not None:
+            asked_name, league_name = competitions[key].name, competitions[league].name
+            hints = [OTHER_LEAGUE.format(team=team.name, asked=asked_name, league=league_name)]
+            key = league
     elif key is None:
         key, hints = default_league(snapshot, index, settings, "Tabelle")
     return key, team, ids, hints
+
+
+def _league_instead(snapshot: Snapshot, settings: Settings, key: str, ids: frozenset[int]) -> str | None:
+    """Die Liga des Vereins statt der genannten Liga `key`, in deren Spielliste er nicht steht; sonst None.
+
+    Nur sicher: `key` ist eine Liga (kein Europapokal) mit brauchbar geladener Spielliste ohne Spiel des Vereins,
+    `league_of` findet eine andere Liga ohne Fehler, und keine der beiden zeigt den Endstand einer Saison (zum
+    Saisonwechsel können die Daten zweier Saisons gemischt sein).
+    """
+    if snapshot.season.competitions[key].kind is not Kind.LEAGUE or key not in available(snapshot, [key]):
+        return None
+    if any({m.home.id, m.away.id} & ids for m in snapshot.matches.get(key, ())):
+        return None
+    try:
+        league = league_of(snapshot, settings, ids, "die Liga")
+    except ToolError:
+        return None
+    if league is None or league == key or key in snapshot.ended_season or league in snapshot.ended_season:
+        return None
+    return league
 
 
 def table_key(
@@ -248,7 +278,8 @@ def answer(
     Verein. Mit `verein` zeigt das Ergebnis die Zeile des Vereins und je zwei darüber und darunter, `ausschnitt`
     gilt dann nicht. Ohne Verein: "spitze" die obersten fünf, "ende" die untersten fünf, "ganz" alle.
     Der Wettbewerb ohne Angabe ist die Liga des genannten Vereins, sonst die des Hauptvereins, sonst die
-    Bundesliga; die Liga eines Vereins ist die gewählte Liga (ohne Frauen), in deren Spielliste er steht. Lässt
+    Bundesliga; die Liga eines Vereins ist die gewählte Liga (ohne Frauen), in deren Spielliste er steht. Spielt
+    der Verein nicht in der genannten Liga, zeigt die Antwort die Tabelle seiner Liga, mit Hinweis. Lässt
     sie sich nicht sicher bestimmen, weil Spiele fehlen, wirft die Antwort den Ladefehler. Der Wettbewerb
     muss eine Tabelle haben; Pokal und Nationalmannschaft werfen `UNSUPPORTED`. `abstaende` gibt es nur mit Verein.
     Rechnet die Tabelle ein laufendes Spiel ein (siehe `_counts_running_match`), sagt ein Hinweis das dazu.

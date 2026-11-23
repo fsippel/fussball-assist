@@ -520,14 +520,16 @@ class TabelleTool(_FootballTool):
     def _build_params(self, choices: _Choices) -> tuple[_Param, ...]:
         return (
             _competition_param(
-                "Wettbewerb mit Tabelle; Pokal und Nationalmannschaft haben keine.",
+                "Wettbewerb mit Tabelle; Pokal und Nationalmannschaft haben keine. Nur angeben, wenn die Frage einen"
+                " Wettbewerb nennt; die Liga eines Vereins nicht raten.",
                 choices.tables,
                 f"die Liga des genannten Vereins, sonst die Liga des Hauptvereins, sonst {DEFAULT_LEAGUE}",
             ),
             _Param(
                 "verein",
                 "text",
-                "Zeigt die Zeile dieses Vereins, je zwei Plätze darüber und darunter und fertige Punkteabstände"
+                "Geht die Frage um einen Verein („Ist Hertha noch Erster?“), immer angeben."
+                " Zeigt die Zeile dieses Vereins, je zwei Plätze darüber und darunter und fertige Punkteabstände"
                 " (zum Ersten, zu den Nachbarn, zur nächsten Zone); ausschnitt gilt dann nicht."
                 " Vorgabe: kein Verein.",
             ),

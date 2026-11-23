@@ -156,10 +156,62 @@ def test_cup_and_national_team_have_no_table():
     assert error.kind is ErrorKind.UNSUPPORTED and "Spiele" in error.text
 
 
-def test_team_not_in_this_table():
-    error = error_of(wettbewerb="bundesliga", verein="Club")
+def _switched(name):
+    return (
+        f"{name} spielt nicht in der Bundesliga, sondern in der 2. Bundesliga;"
+        " das ist die Tabelle der 2. Bundesliga."
+    )
+
+
+def test_team_in_another_league_gets_the_table_of_its_league():
+    result = ask(wettbewerb="bundesliga", verein="Club")
+    assert result["wettbewerb"] == "2. Bundesliga" and result["verein"] == "1. FC Nürnberg"
+    assert places(result) == [1, 2, 3, 4]
+    assert result["hinweise"][0] == _switched("1. FC Nürnberg")
+
+
+def test_hertha_with_a_guessed_league_gets_the_second_league():
+    # „Ist Hertha noch Erster?“ mit geratener Liga: gleich die Tabelle der 2. Bundesliga, nicht erst ein Fehler.
+    for kwargs in ({}, {"ausschnitt": "spitze"}):
+        result = ask(wettbewerb="bundesliga", verein="Hertha", **kwargs)
+        assert result["wettbewerb"] == "2. Bundesliga" and result["verein"] == "Hertha BSC"
+        assert "Hertha BSC" in teams(result) and places(result) == [1, 2, 3]
+        assert result["abstaende"] == [
+            "Tabellenführer, 7 Punkte vor Platz 2",
+            "10 Punkte vor dem Relegationsplatz für den Aufstieg (Platz 3)",
+        ]
+        assert result["hinweise"][0] == _switched("Hertha BSC")
+        assert ZONES not in result["hinweise"]  # alle gezeigten Plätze haben eine Zone, wie ohne Wechsel
+    plain = ask(verein="Hertha")
+    assert plain["wettbewerb"] == "2. Bundesliga"
+    assert not [h for h in plain["hinweise"] if "spielt nicht in der" in h]
+
+
+def test_no_switch_away_from_a_european_league_phase():
+    error = error_of(wettbewerb="champions_league", verein="Hertha")
+    assert error.kind is ErrorKind.NOTHING_ENTERED and "2. Bundesliga" in error.text
+    assert ask(wettbewerb="champions_league", verein="Bayern")["wettbewerb"] == "Champions League"
+
+
+def test_no_switch_for_a_team_known_only_from_europe():
+    error = error_of(wettbewerb="bundesliga", verein="Real Madrid")
     assert error.kind is ErrorKind.NOTHING_ENTERED
-    assert "1. FC Nürnberg" in error.text and "Bundesliga" in error.text and "2. Bundesliga" in error.text
+    assert error.text == "„Real Madrid“ steht nicht in der Tabelle von Bundesliga."
+
+
+def test_no_switch_at_the_change_of_season():
+    snapshot = make_snapshot(NOW)
+    for key in ("bundesliga", "2_bundesliga"):
+        ended = dataclasses.replace(snapshot, ended_season=MappingProxyType({key: snapshot.season}))
+        error = error_of(snapshot=ended, wettbewerb="bundesliga", verein="Hertha")
+        assert error.kind is ErrorKind.NOTHING_ENTERED and "steht nicht in der Tabelle von Bundesliga" in error.text
+
+
+def test_no_switch_without_the_match_list_of_the_named_league():
+    snapshot = make_snapshot(NOW)
+    waiting = dataclasses.replace(snapshot, loaded=snapshot.loaded - {"bundesliga"})
+    error = error_of(snapshot=waiting, wettbewerb="bundesliga", verein="Hertha")
+    assert error.kind is ErrorKind.UNREACHABLE and "Bundesliga" in error.text
 
 
 def test_invalid_section():
